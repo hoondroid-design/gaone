@@ -20,7 +20,7 @@ export const FIREBASE_CONFIG = {
 
 // 관리자 계정의 UID 목록 (화면 표시용).
 // 실제 권한은 firestore.rules, storage.rules 의 같은 목록이 결정하므로 세 곳을 항상 똑같이 맞춰 주세요.
-export const ADMIN_UIDS = ["Yqf87aEWpbYqobL8ThfTvHzXzmT2"];
+export const ADMIN_UIDS = ["Yqf87aEWpbYqobL8ThfTvHzXzmT2","i2e5C4Ag6ebeGK5OycJxzmwSNx12"];
 
 // 관리자 로그인에 인증 앱(OTP) 코드를 요구할지 여부.
 // true 를 권장합니다. false 로 바꾸면 두 rules 파일의 sign_in_second_factor 줄도 함께 지워야 합니다.
