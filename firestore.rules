@@ -13,7 +13,7 @@ service cloud.firestore {
     // config.js 의 REQUIRE_MFA 를 false 로 바꿨다면 마지막 줄(sign_in_second_factor)을 지우세요.
     function isAdmin() {
       return request.auth != null
-        && request.auth.uid in ['Yqf87aEWpbYqobL8ThfTvHzXzmT2']
+        && request.auth.uid in ['Yqf87aEWpbYqobL8ThfTvHzXzmT2','i2e5C4Ag6ebeGK5OycJxzmwSNx12']
         && request.auth.token.firebase.get('sign_in_second_factor', null) != null;
     }
     function signedIn() { return request.auth != null; }
