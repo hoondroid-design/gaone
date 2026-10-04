@@ -6,8 +6,8 @@ service firebase.storage {
   match /b/{bucket}/o {
     function isAdmin() {
       return request.auth != null
-        && request.auth.uid in ['Yqf87aEWpbYqobL8ThfTvHzXzmT2','i2e5C4Ag6ebeGK5OycJxzmwSNx12']
-        && request.auth.token.firebase.get('sign_in_second_factor', null) != null;
+        && request.auth.uid in ['Yqf87aEWpbYqobL8ThfTvHzXzmT2', 'i2e5C4Ag6ebeGK50ycJxzmwSNx12']
+        && 'sign_in_second_factor' in request.auth.token.firebase;
     }
     match /images/{file} {
       allow read: if true;
@@ -18,3 +18,4 @@ service firebase.storage {
     }
   }
 }
+
