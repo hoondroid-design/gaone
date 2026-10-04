@@ -418,6 +418,10 @@ footer{border-top:1px solid var(--line);padding:40px 0 48px;font-size:.88rem;col
 .foot-sns i{font-style:normal;color:var(--muted);font-size:.8rem}
 .foot-links{display:flex;gap:18px;flex-wrap:wrap;margin-top:26px}
 .foot-links a{color:var(--muted)}
+.foot-legal{margin-top:28px;padding-top:20px;border-top:1px solid var(--line);font-size:.78rem;line-height:1.75;color:var(--muted)}
+.foot-legal p{margin:0 0 8px;max-width:62rem}
+.foot-legal .fl-h{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);opacity:.7;margin-bottom:6px}
+.foot-legal .fl-c{margin:12px 0 0;color:var(--ink);opacity:.8}
 .foot .fb{font-family:var(--serif);color:var(--ink);font-size:1.05rem;margin-bottom:6px}
 </style>
 </head>
@@ -601,6 +605,8 @@ function sns(p){
   add("Instagram", p.instagram, "https://www.instagram.com/", "/");
   return out;
 }
+const NOTICE_DEFAULT = "본 사이트에 게재된 모든 공연 영상, 사진, 이미지, 일러스트, 글 및 굿즈 디자인의 저작권은 아티스트 및 원저작자에게 있습니다. 일부 창작 안무는 저작권자로부터 정식으로 사사(師事)받아 시연되는 작품입니다. 원저작자 및 관계자의 서면 승인 없이 무단으로 복제, 배포, 변형, 무단 차용 및 상업적 이용 시 법적 책임을 질 수 있습니다.";
+const COPY_DEFAULT = "© Ga_oneway. All Rights Reserved.";
 function vFooter(){
   const p = S.profile;
   const biz = [p.bizName && `상호 ${esc(p.bizName)}`, p.bizOwner && `대표 ${esc(p.bizOwner)}`, p.bizNo && `사업자등록번호 ${esc(p.bizNo)}`, p.mailOrderNo && `통신판매업 신고 ${esc(p.mailOrderNo)}`, p.bizAddress && esc(p.bizAddress)].filter(Boolean);
@@ -610,7 +616,8 @@ function vFooter(){
     ${links.length ? `<div class="foot-sns" aria-label="SNS">${links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener"><b>${l.label}</b>${l.handle ? `<span>${esc(l.handle)}</span>` : ""}<i aria-hidden="true">↗</i></a>`).join("")}</div>` : ""}
   </div>
   <div class="wrap foot-links"><a href="#/cart">장바구니${cartCount() ? ` (${cartCount()})` : ""}</a><a href="#/orders">주문 조회</a><a href="#/sources">자료출처</a><a href="#/privacy">개인정보처리방침</a><a href="#/admin">관리자</a></div>
-  ${biz.length ? `<div class="wrap foot-biz">${biz.join("<span aria-hidden=\"true\"> | </span>")}</div>` : ""}`;
+  ${biz.length ? `<div class="wrap foot-biz">${biz.join("<span aria-hidden=\"true\"> | </span>")}</div>` : ""}
+  <div class="wrap"><div class="foot-legal"><p class="fl-h">Copyright &amp; Intellectual Property Notice</p><p>${esc(String(p.notice || "").trim() || NOTICE_DEFAULT).replace(/\n/g, "<br>")}</p><p class="fl-c">${esc(String(p.copyright || "").trim() || COPY_DEFAULT)}</p></div></div>`;
 }
 
 function videoCard(v){
@@ -1005,6 +1012,8 @@ const PROFILE_FIELDS = [
   {k:"teaching",l:"지도 경력",t:"textarea",rows:6,wide:1,hint:"한 줄에 하나씩 적어 주세요. 예: 2023~ ○○대학교 무용과 출강"},
   {k:"email",l:"문의 이메일"},{k:"phone",l:"문의 전화"},{k:"youtube",l:"YouTube 채널 주소",wide:1,hint:"채널 주소 전체(예: https://www.youtube.com/@채널이름) 또는 @채널이름만 적어도 돼요. 풋터와 문의 페이지에 표시돼요."},{k:"instagram",l:"Instagram 주소",wide:1,hint:"계정 주소 전체(예: https://www.instagram.com/아이디/) 또는 아이디만 적어도 돼요. 비워 두면 표시하지 않아요."},
   {k:"bizName",l:"상호",hint:"통신판매업 신고 후 풋터에 표시돼요."},{k:"bizOwner",l:"대표자"},{k:"bizNo",l:"사업자등록번호"},{k:"mailOrderNo",l:"통신판매업 신고번호"},{k:"bizAddress",l:"사업장 주소",wide:1},
+  {k:"notice",l:"풋터 저작권 안내 문구",t:"textarea",rows:5,wide:1,hint:"풋터 맨 아래 'Copyright & Intellectual Property Notice' 아래에 표시돼요. 비워 두면 기본 문구가 나와요."},
+  {k:"copyright",l:"저작권 표기 줄",wide:1,hint:"예: © Ga_oneway. All Rights Reserved. 비워 두면 이 문장이 나와요."},
   {k:"privacy",l:"개인정보처리방침",t:"textarea",rows:12,wide:1,hint:"주문과 문의로 이름, 연락처, 주소를 받기 때문에 꼭 필요해요. 개인정보 포털(privacy.go.kr)의 작성 지원 도구로 만든 문서를 붙여 넣으면 '개인정보처리방침' 페이지에 표시돼요. 빈 줄로 문단을 나눠요."},
   {k:"bank",l:"무통장 입금 계좌",wide:1,hint:"예: ○○은행 000-0000-0000 (예금주 홍길동)"},{k:"rep_seungmu",l:"나의 이매방류 승무 (사사, 이수 여부)",t:"textarea",rows:2,wide:1,hint:"레퍼토리 카드에 함께 표시돼요. 비워 두면 표시하지 않아요."},{k:"rep_salpuri",l:"나의 살풀이춤",t:"textarea",rows:2,wide:1},{k:"rep_taepyeong",l:"나의 태평무",t:"textarea",rows:2,wide:1},{k:"rep_hwarang",l:"나의 화랭이춤 (작품 설명, 사사 관계)",t:"textarea",rows:3,wide:1,hint:"화랭이춤은 공공기관의 작품 해설 자료가 확인되지 않아 용어 뜻만 출처와 함께 실었어요. 작품 설명은 국수호 선생님 측 자료를 바탕으로 직접 적어 주세요."},{k:"rep_geommu",l:"나의 검무",t:"textarea",rows:2,wide:1},{k:"rep_sogo",l:"나의 김묘선류 소고춤",t:"textarea",rows:2,wide:1}
 ];
