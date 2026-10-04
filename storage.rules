@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// 이미지 저장소 규칙 — 누구나 보기, 관리자만 올리기.
+// [설정] firestore.rules 와 같은 관리자 UID로 바꾸세요.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.uid in ['Yqf87aEWpbYqobL8ThfTvHzXzmT2']
+        && request.auth.token.firebase.get('sign_in_second_factor', null) != null;
+    }
+    match /images/{file} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+  }
+}

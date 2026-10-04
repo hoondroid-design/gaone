@@ -1,0 +1,134 @@
+{
+  "site": {
+    "meta": {
+      "canonical": "",
+      "description": "한국무용가 공식 홈페이지. 이매방류 승무, 살풀이춤, 태평무, 화랭이춤, 검무, 소고춤 공연과 워크숍 문의.",
+      "extra": "",
+      "google": "",
+      "keywords": "승무, 이매방류 승무, 살풀이춤, 태평무, 화랭이춤, 검무, 소고춤, 한국무용 공연 섭외",
+      "naver": "",
+      "ogDescription": "",
+      "ogImage": "",
+      "ogTitle": "",
+      "title": "",
+      "updatedAt": 1
+    },
+    "profile": {
+      "awards": "20○○  ○○ 무용제 연기상 (예시)\n20○○  ○○ 전통공연예술 신인상 (예시)",
+      "bank": "○○은행 000-0000-0000 (예금주 ○○○)",
+      "career": "20○○  ○○대학교 무용학과 졸업 (예시)\n20○○  국가무형유산 승무 이수 (예시)\n20○○  개인 공연 〈장삼의 시간〉 (예시)\n20○○  ○○ 국제 문화 교류 공연 초청 (예시)",
+      "createdAt": 1,
+      "email": "",
+      "instagram": "https://www.instagram.com/",
+      "lineage": "○○○ 선생께 승무를 사사하였으며, 20○○년 국가무형유산 승무 이수자가 되었습니다. (관리자 화면의 '사이트 정보'에서 수정하세요)",
+      "name": "무용가 이름",
+      "nameEn": "Artist Name",
+      "philosophy": "춤은 멈춤에서 시작된다고 믿습니다.\n장삼 자락이 다 내려앉기 전, 그 짧은 정적을 무대 위에 오래 붙잡아 두고 싶습니다. (예시 문구)",
+      "phone": "",
+      "photo": "",
+      "rep_geommu": "",
+      "rep_hwarang": "",
+      "rep_salpuri": "",
+      "rep_seungmu": "",
+      "rep_sogo": "",
+      "rep_taepyeong": "",
+      "title": "국가무형유산 승무 이수자 (예시)",
+      "youtube": "https://www.youtube.com/"
+    }
+  },
+  "performances": {
+    "pf1": {
+      "createdAt": 2,
+      "date": "2025-11-08",
+      "description": "승무와 살풀이춤을 엮은 개인 무대 (예시)",
+      "highlight": "주요 공연",
+      "host": "○○문화재단 (예시)",
+      "image": "",
+      "link": "",
+      "repertoire": "승무",
+      "role": "출연",
+      "title": "개인 공연 〈장삼의 시간〉 (예시)",
+      "venue": "○○아트센터 (예시)"
+    },
+    "pf2": {
+      "createdAt": 1,
+      "date": "2024-09-14",
+      "description": "",
+      "highlight": "",
+      "host": "",
+      "image": "",
+      "link": "",
+      "repertoire": "화랭이춤",
+      "role": "출연",
+      "title": "전통춤 초청 공연 (예시)",
+      "venue": "○○국악당 (예시)"
+    }
+  },
+  "products": {
+    "incense": {
+      "createdAt": 2,
+      "description": "고깔의 접힌 선을 그대로 살린 백자 오브제입니다. 인센스 홀더나 작은 장식으로 쓸 수 있어요.\n\n소재: 백자토\n크기: 지름 7cm, 높이 11cm\n\n(예시 상품)",
+      "images": [],
+      "name": "고깔 오브제 인센스 홀더",
+      "price": 42000,
+      "salePrice": null,
+      "status": "판매중",
+      "stock": 12,
+      "summary": "흰 고깔의 실루엣을 닮은 백자 인센스 홀더"
+    }
+  },
+  "videos": {
+    "v1": {
+      "category": "하이라이트",
+      "createdAt": 3,
+      "date": "2025-11-08",
+      "description": "관리자 화면에서 YouTube 링크를 등록하면 재생됩니다.",
+      "repertoire": "승무",
+      "title": "승무 전막 하이라이트",
+      "url": "",
+      "venue": "○○아트센터 (예시)"
+    },
+    "v2": {
+      "category": "무대 영상",
+      "createdAt": 2,
+      "date": "2025-06-14",
+      "description": "",
+      "repertoire": "태평무",
+      "title": "태평무, 4K 무대 영상",
+      "url": "",
+      "venue": "○○극장 (예시)"
+    },
+    "v3": {
+      "category": "비하인드",
+      "createdAt": 1,
+      "date": "2025-03-02",
+      "description": "",
+      "repertoire": "살풀이춤",
+      "title": "연습실, 수건을 다루는 손",
+      "url": "",
+      "venue": ""
+    }
+  },
+  "projects": {
+    "pr1": {
+      "createdAt": 2,
+      "description": "북가락의 진동을 실시간으로 빛과 선으로 바꾸어, 무용수의 몸과 영상이 함께 승무를 추는 작업입니다.\n\n(예시 프로젝트)",
+      "genre": "미디어아트",
+      "image": "",
+      "link": "",
+      "partners": "○○ 미디어 스튜디오 (예시)",
+      "title": "〈잔향〉 승무와 미디어아트",
+      "year": "2025"
+    },
+    "pr2": {
+      "createdAt": 1,
+      "description": "장삼의 긴 소매 구조를 현대 의상으로 재해석한 캡슐 컬렉션의 런웨이 퍼포먼스.\n\n(예시 프로젝트)",
+      "genre": "패션",
+      "image": "",
+      "link": "",
+      "partners": "○○ 디자이너 브랜드 (예시)",
+      "title": "장삼 컬렉션 협업",
+      "year": "2024"
+    }
+  }
+}

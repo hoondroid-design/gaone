@@ -1,0 +1,85 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────
+// Firestore 보안 규칙 — 이 파일이 실제로 데이터를 지키는 "서버의 문지기"입니다.
+// 화면 코드(docs/)를 누가 복사하거나 고쳐도 이 규칙을 통과하지 못하면 읽기/쓰기가 거부됩니다.
+//
+// [설정] 아래 ADMIN UID 목록을 본인 관리자 계정의 UID로 바꾸세요. (README 7단계)
+// ─────────────────────────────────────────────────────────────
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 관리자: 지정된 UID + 인증 앱(OTP) 코드로 로그인한 세션만 허용.
+    // config.js 의 REQUIRE_MFA 를 false 로 바꿨다면 마지막 줄(sign_in_second_factor)을 지우세요.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.uid in ['Yqf87aEWpbYqobL8ThfTvHzXzmT2']
+        && request.auth.token.firebase.get('sign_in_second_factor', null) != null;
+    }
+    function signedIn() { return request.auth != null; }
+    function str(v, n) { return v is string && v.size() <= n; }
+
+    // ── 공개 콘텐츠: 누구나 읽고, 관리자만 씁니다 ──
+    match /site/{id}         { allow read: if true; allow write: if isAdmin(); }
+    match /products/{id}     { allow read: if true; allow write: if isAdmin(); }
+    match /videos/{id}       { allow read: if true; allow write: if isAdmin(); }
+    match /gallery/{id}      { allow read: if true; allow write: if isAdmin(); }
+    match /projects/{id}     { allow read: if true; allow write: if isAdmin(); }
+    match /news/{id}         { allow read: if true; allow write: if isAdmin(); }
+    match /performances/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /slides/{id}       { allow read: if true; allow write: if isAdmin(); }
+
+    // ── 주문: 방문자는 자기 주문만 만들고 볼 수 있음. 수정·삭제는 관리자만 ──
+    match /orders/{orderId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn()
+        && orderId.matches('SM[0-9]{6}-[A-Z0-9]{4}')
+        && request.resource.data.keys().hasOnly(['uid','items','subtotal','shipping','total','buyer','pay','status','stockDeducted','createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == '입금대기'
+        && request.resource.data.pay == '무통장입금'
+        && request.resource.data.stockDeducted == false
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0 && request.resource.data.items.size() <= 30
+        && request.resource.data.subtotal is number && request.resource.data.subtotal > 0
+        && request.resource.data.shipping in [0, 3000]
+        && request.resource.data.total == request.resource.data.subtotal + request.resource.data.shipping
+        && request.resource.data.buyer is map
+        && request.resource.data.buyer.keys().hasOnly(['name','phone','email','zip','address','address2','memo'])
+        && str(request.resource.data.buyer.name, 50) && request.resource.data.buyer.name.size() > 0
+        && str(request.resource.data.buyer.phone, 30) && request.resource.data.buyer.phone.size() > 0
+        && str(request.resource.data.buyer.email, 100)
+        && str(request.resource.data.buyer.zip, 10)
+        && str(request.resource.data.buyer.address, 200) && request.resource.data.buyer.address.size() > 0
+        && str(request.resource.data.buyer.address2, 200)
+        && str(request.resource.data.buyer.memo, 300)
+        && request.resource.data.createdAt is number;
+      allow update, delete: if isAdmin();
+    }
+
+    // ── 문의: 방문자는 보내기만, 읽기·처리는 관리자만 ──
+    match /inquiries/{id} {
+      allow read, update, delete: if isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid','kind','status','createdAt','type','rep','org','name','phone','email','eventDate','place','audience','budget','link','message'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == '새 문의'
+        && request.resource.data.kind in ['performance', 'business']
+        && str(request.resource.data.name, 300) && request.resource.data.name.size() > 0
+        && str(request.resource.data.type, 300) && str(request.resource.data.rep, 300)
+        && str(request.resource.data.org, 300) && str(request.resource.data.phone, 300)
+        && str(request.resource.data.email, 300) && str(request.resource.data.eventDate, 300)
+        && str(request.resource.data.place, 300) && str(request.resource.data.audience, 300)
+        && str(request.resource.data.budget, 300) && str(request.resource.data.link, 300)
+        && str(request.resource.data.message, 5000) && request.resource.data.message.size() > 0
+        && request.resource.data.createdAt is number;
+    }
+
+    // ── 관리자 로그인 기록 ──
+    match /adminLog/{id} {
+      allow read, create: if isAdmin();
+    }
+
+    // 그 밖의 모든 경로는 거부
+  }
+}
