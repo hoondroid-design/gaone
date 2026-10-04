@@ -176,6 +176,8 @@ p{margin:0 0 1em}
 .cv-list li{display:grid;grid-template-columns:110px 1fr;gap:16px;padding:9px 0;border-bottom:1px solid var(--line);font-size:.95rem}
 .cv-y{color:var(--muted);font-variant-numeric:tabular-nums}
 @media (max-width:700px){.cv-block{grid-template-columns:1fr;gap:8px}.cv-list li{grid-template-columns:84px 1fr;gap:10px}}
+.hero-awards{margin-top:32px;border-top:1px solid var(--ink);padding-top:14px}
+.hero-awards h2{font-size:1.1rem;margin-bottom:6px}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -522,7 +524,7 @@ const SRC = {
 const SRC_CHECKED = "2026.10.04";
 const srcLine = keys => `<p class="src">출처: ${keys.map(k => `<a href="${SRC[k].u}" target="_blank" rel="noopener">${esc(SRC[k].org + " " + SRC[k].t)}</a>`).join("; ")}</p>`;
 const REP = [
-  {k: "seungmu", name: "승무", hanja: "僧舞", status: "국가무형유산, 1969.07.04 지정",
+  {k: "seungmu", name: "이매방류 승무", hanja: "僧舞", status: "국가무형유산, 1969.07.04 지정",
    desc: "장삼을 입고 고깔을 쓴 채 장삼춤과 북놀음을 이어 가는 민속 홀춤입니다. 복색과 북놀음에 불교적 요소를 빌려 왔지만 불교 의례춤은 아니며, 인간의 불교적 갈등과 번뇌를 주제로 삼습니다.", src: ["g_seungmu", "h_seungmu"]},
   {k: "salpuri", name: "살풀이춤", hanja: "", alt: "수건춤, 즉흥춤", status: "국가무형유산, 1990 지정",
    desc: "살풀이장단과 선율에 맞춰 흰 수건을 들거나 맨손으로 추는, 즉흥성이 강한 춤입니다. 굿에서 추던 춤에서 비롯된 것으로 알려져 있으며, 나쁜 기운인 '살'을 풀고 헤쳐 나간다는 뜻과 함께 한(恨)과 흥(興)을 동시에 드러냅니다. 반주는 정해진 장단 안에서 악기마다 즉흥 가락을 엮는 시나위 합주이고, 춤꾼 역시 장단 안에서 즉흥성을 발휘합니다.", src: ["g_salpuri"]},
@@ -788,7 +790,8 @@ function vArtist(){
   const key = perf.filter(x => x.highlight === "주요 공연");
   const years = [...new Set(perf.map(x => String(x.date || "").slice(0, 4)).filter(Boolean))];
   const perfRow = x => `<li class="perf"><span class="pd8">${fmtDate(x.date)}</span><div><b>${esc(x.title)}</b>${x.link ? ` <a href="${esc(x.link)}" target="_blank" rel="noopener" class="muted" style="font-size:.85rem">자료 보기</a>` : ""}<div class="muted" style="font-size:.88rem">${esc([x.venue, x.host].filter(Boolean).join(", "))}</div></div><span class="perf-tags">${[x.role, x.repertoire].filter(Boolean).map(t => `<i>${esc(t)}</i>`).join("")}</span></li>`;
-  const cv = cvBlock("주요 이력", p.career) + cvBlock("수상 경력", p.awards) + cvBlock("지도 경력", p.teaching);
+  const awards = cvRows(p.awards);
+  const cv = cvBlock("주요 이력", p.career) + cvBlock("지도 경력", p.teaching);
   return `<section class="wrap artist-hero">
     <div class="artist-photo">${imgOr(p.photo, "artist", p.name)}</div>
     <div>
@@ -796,14 +799,14 @@ function vArtist(){
       <h1>${esc(p.name || "무용가 이름")}</h1>
       ${p.nameEn ? `<p class="en">${esc(p.nameEn)}</p>` : ""}
       ${p.title ? `<span class="badge">${esc(p.title)}</span>` : ""}
+      ${awards ? `<div class="hero-awards"><h2>수상 경력</h2><ul class="cv-list">${awards}</ul></div>` : ""}
       ${p.philosophy ? `<p class="drum-quote" style="margin-top:28px;font-size:1.25rem">${esc(p.philosophy).replace(/\n/g, "<br>")}</p>` : ""}
       ${p.lineage ? `<div class="prose" style="margin-top:20px"><h3 style="font-size:1rem;margin-bottom:8px">사승 관계</h3>${paras(p.lineage)}</div>` : ""}
-      <div class="btn-row" style="margin-top:24px"><a class="btn kasa" href="#/contact/performance">공연 섭외 문의</a><a class="btn ghost" href="#/portfolio/video">공연 영상</a></div>
     </div>
   </section>
   ${cv ? `<div class="sec"><div class="wrap">${cv}</div></div>` : ""}
   <section class="sec"><div class="wrap">
-    <div class="sec-head"><div><h2>공연 레퍼런스</h2><p>무대에 오른 기록을 연도별로 정리했습니다.</p></div></div>
+    <div class="sec-head"><div><h2>공연 레퍼런스</h2><p>무대에 오른 기록을 연도별로 정리했습니다.</p></div><a class="btn ghost sm" href="#/portfolio/video">공연 영상</a></div>
     ${key.length ? `<div class="grid g3" style="margin-bottom:48px">${key.map(x => `<article class="keyperf">${x.image ? `<div class="pimg" style="aspect-ratio:4/3"><img src="${blob(x.image)}" alt="${esc(x.title)}" loading="lazy"></div>` : ""}<p class="muted" style="font-size:.85rem;margin:12px 0 4px">${fmtDate(x.date)}${x.venue ? `, ${esc(x.venue)}` : ""}</p><h3>${esc(x.title)}</h3>${x.role || x.repertoire ? `<p class="rep-st" style="margin-top:6px">${esc([x.role, x.repertoire].filter(Boolean).join(", "))}</p>` : ""}${x.description ? `<p style="font-size:.93rem">${esc(x.description)}</p>` : ""}</article>`).join("")}</div>` : ""}
     ${perf.length ? years.map(y => `<div class="perf-year"><h3>${y}</h3><ul class="perf-list">${perf.filter(x => String(x.date || "").startsWith(y)).map(perfRow).join("")}</ul></div>`).join("") : (S.loaded ? `<div class="empty">등록된 공연 기록이 없어요.</div>` : loading())}
   </div></section>`;
@@ -942,7 +945,7 @@ function vContact(sub){
   };
   const common = fld("name","이름 또는 담당자",{req:1}) + fld("phone","연락처",{req:1,type:"tel"}) + fld("email","이메일",{type:"email",wide:1});
   const form = sub === "performance"
-    ? fld("type","요청 종류",{req:1,opts:["공연 섭외","축하 무대","전통춤 워크숍","정기 클래스","기타"]}) + fld("rep","희망 레퍼토리",{opts:["승무","살풀이춤","태평무","화랭이춤","검무(칼춤)","김묘선류 소고춤","여러 작품 구성","상의 후 결정"]}) + fld("org","기관, 단체명") + common +
+    ? fld("type","요청 종류",{req:1,opts:["공연 섭외","축하 무대","전통춤 워크숍","정기 클래스","기타"]}) + fld("rep","희망 레퍼토리",{opts:["이매방류 승무","살풀이춤","태평무","화랭이춤","검무(칼춤)","김묘선류 소고춤","여러 작품 구성","상의 후 결정"]}) + fld("org","기관, 단체명") + common +
       fld("eventDate","희망 일자",{type:"date"}) + fld("place","장소") + fld("audience","예상 인원",{ph:"예: 200명"}) + fld("budget","예산 범위",{ph:"예: 협의"}) +
       fld("message","행사 내용과 요청 사항",{req:1,area:1,wide:1,ph:"행사 성격, 무대 환경, 공연 시간 등 알려 주시면 빠르게 안내드릴 수 있어요."})
     : fld("type","문의 종류",{req:1,opts:["굿즈 제휴","예술 협업","브랜드 협업","언론, 인터뷰","기타"]}) + fld("org","회사, 기관명") + common +
@@ -1003,7 +1006,7 @@ const PROFILE_FIELDS = [
   {k:"email",l:"문의 이메일"},{k:"phone",l:"문의 전화"},{k:"youtube",l:"YouTube 채널 주소",wide:1,hint:"채널 주소 전체(예: https://www.youtube.com/@채널이름) 또는 @채널이름만 적어도 돼요. 풋터와 문의 페이지에 표시돼요."},{k:"instagram",l:"Instagram 주소",wide:1,hint:"계정 주소 전체(예: https://www.instagram.com/아이디/) 또는 아이디만 적어도 돼요. 비워 두면 표시하지 않아요."},
   {k:"bizName",l:"상호",hint:"통신판매업 신고 후 풋터에 표시돼요."},{k:"bizOwner",l:"대표자"},{k:"bizNo",l:"사업자등록번호"},{k:"mailOrderNo",l:"통신판매업 신고번호"},{k:"bizAddress",l:"사업장 주소",wide:1},
   {k:"privacy",l:"개인정보처리방침",t:"textarea",rows:12,wide:1,hint:"주문과 문의로 이름, 연락처, 주소를 받기 때문에 꼭 필요해요. 개인정보 포털(privacy.go.kr)의 작성 지원 도구로 만든 문서를 붙여 넣으면 '개인정보처리방침' 페이지에 표시돼요. 빈 줄로 문단을 나눠요."},
-  {k:"bank",l:"무통장 입금 계좌",wide:1,hint:"예: ○○은행 000-0000-0000 (예금주 홍길동)"},{k:"rep_seungmu",l:"나의 승무 (류파, 사사, 이수 여부)",t:"textarea",rows:2,wide:1,hint:"레퍼토리 카드에 함께 표시돼요. 비워 두면 표시하지 않아요."},{k:"rep_salpuri",l:"나의 살풀이춤",t:"textarea",rows:2,wide:1},{k:"rep_taepyeong",l:"나의 태평무",t:"textarea",rows:2,wide:1},{k:"rep_hwarang",l:"나의 화랭이춤 (작품 설명, 사사 관계)",t:"textarea",rows:3,wide:1,hint:"화랭이춤은 공공기관의 작품 해설 자료가 확인되지 않아 용어 뜻만 출처와 함께 실었어요. 작품 설명은 국수호 선생님 측 자료를 바탕으로 직접 적어 주세요."},{k:"rep_geommu",l:"나의 검무",t:"textarea",rows:2,wide:1},{k:"rep_sogo",l:"나의 김묘선류 소고춤",t:"textarea",rows:2,wide:1}
+  {k:"bank",l:"무통장 입금 계좌",wide:1,hint:"예: ○○은행 000-0000-0000 (예금주 홍길동)"},{k:"rep_seungmu",l:"나의 이매방류 승무 (사사, 이수 여부)",t:"textarea",rows:2,wide:1,hint:"레퍼토리 카드에 함께 표시돼요. 비워 두면 표시하지 않아요."},{k:"rep_salpuri",l:"나의 살풀이춤",t:"textarea",rows:2,wide:1},{k:"rep_taepyeong",l:"나의 태평무",t:"textarea",rows:2,wide:1},{k:"rep_hwarang",l:"나의 화랭이춤 (작품 설명, 사사 관계)",t:"textarea",rows:3,wide:1,hint:"화랭이춤은 공공기관의 작품 해설 자료가 확인되지 않아 용어 뜻만 출처와 함께 실었어요. 작품 설명은 국수호 선생님 측 자료를 바탕으로 직접 적어 주세요."},{k:"rep_geommu",l:"나의 검무",t:"textarea",rows:2,wide:1},{k:"rep_sogo",l:"나의 김묘선류 소고춤",t:"textarea",rows:2,wide:1}
 ];
 const ORDER_STATUS = ["입금대기","결제완료","배송준비","배송중","배송완료","취소"];
 const DEDUCTED = ["결제완료","배송준비","배송중","배송완료"];
