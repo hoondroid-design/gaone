@@ -396,7 +396,7 @@ select.sort{padding:8px 12px;border:1px solid var(--line);background:var(--paper
 .modal-top button{background:#fff;color:#111;border:0;padding:6px 12px;cursor:pointer}
 .vframe{aspect-ratio:16/9;background:#000}
 .vframe iframe{width:100%;height:100%;border:0}
-#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:12px 20px;font-size:.92rem;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast{max-width:min(92vw,560px);text-align:center;line-height:1.5;position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:12px 20px;font-size:.92rem;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.show{opacity:1}
 footer{border-top:1px solid var(--line);padding:40px 0 48px;font-size:.88rem;color:var(--muted)}
 .foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
@@ -413,7 +413,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 48px;font-size:.88rem;col
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword, signOut, multiFactor, TotpMultiFactorGenerator, getMultiFactorResolver, sendPasswordResetEmail, sendEmailVerification, reload } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { FIREBASE_CONFIG, ADMIN_UIDS, REQUIRE_MFA, SITE_NAME } from "./config.js";
@@ -434,12 +434,20 @@ const SHIP = 3000, FREE_SHIP = 50000;
 /* ---------- firebase ---------- */
 const CONFIGURED = !!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && !/^YOUR_/.test(FIREBASE_CONFIG.apiKey));
 let fapp = null, fdb = null, fauth = null, fstore = null;
-if (CONFIGURED){ fapp = initializeApp(FIREBASE_CONFIG); fdb = getFirestore(fapp); fauth = getAuth(fapp); fauth.languageCode = "ko"; fstore = getStorage(fapp); }
+if (CONFIGURED){ fapp = initializeApp(FIREBASE_CONFIG); fdb = initializeFirestore(fapp, {experimentalForceLongPolling: true}); fauth = getAuth(fapp); fauth.languageCode = "ko"; fstore = getStorage(fapp); }
 const wrapDoc = d => ({id: d.id, exists: d.exists(), data: () => d.data()});
+/* never leave the UI stuck: give up waiting after a while and report it */
+const withTimeout = (p, ms = 20000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({code: "timeout"}), ms))]);
+const failMsg = (err, what) => {
+  const c = (err && err.code) || "unknown";
+  if (c === "timeout") return `${what} 서버 응답이 없어요. 인터넷 연결을 확인하고, 광고 차단 확장 프로그램이나 보안 프로그램이 있다면 잠시 끄고 다시 시도해 주세요.`;
+  if (c === "permission-denied" || c === "storage/unauthorized") return `${what} 권한이 없어요. 보안 규칙의 관리자 UID와 게시 여부를 확인하고 다시 로그인해 주세요. (${c})`;
+  return `${what} (오류 코드: ${c})`;
+};
 const FS = {
   collection: path => ({
     onSnapshot: (next, err) => onSnapshot(collection(fdb, path), snap => next({docs: snap.docs.map(wrapDoc)}), err),
-    add: data => addDoc(collection(fdb, path), data)
+    add: data => withTimeout(addDoc(collection(fdb, path), data))
   }),
   where: (path, field, val) => ({
     onSnapshot: (next, err) => onSnapshot(query(collection(fdb, path), where(field, "==", val)), snap => next({docs: snap.docs.map(wrapDoc)}), err)
@@ -448,10 +456,10 @@ const FS = {
     onSnapshot: (next, err) => onSnapshot(query(collection(fdb, path), orderBy(field, "desc"), limit(n)), snap => next({docs: snap.docs.map(wrapDoc)}), err)
   }),
   doc: path => ({
-    get: async () => wrapDoc(await getDoc(doc(fdb, path))),
-    set: data => setDoc(doc(fdb, path), data),
-    update: data => updateDoc(doc(fdb, path), data),
-    delete: () => deleteDoc(doc(fdb, path)),
+    get: async () => wrapDoc(await withTimeout(getDoc(doc(fdb, path)))),
+    set: data => withTimeout(setDoc(doc(fdb, path), data)),
+    update: data => withTimeout(updateDoc(doc(fdb, path), data)),
+    delete: () => withTimeout(deleteDoc(doc(fdb, path))),
     onSnapshot: (next, err) => onSnapshot(doc(fdb, path), d => next(wrapDoc(d)), err)
   })
 };
@@ -1023,7 +1031,7 @@ async function saveMeta(form){
   if (data.canonical && !/^https:\/\//.test(data.canonical)){ toast("대표 주소는 https:// 로 시작해야 해요"); return; }
   S.busy = true; render();
   try { await FS.doc("site/meta").set({...data, updatedAt: Date.now()}); toast("메타 태그를 저장하고 적용했어요"); }
-  catch(e){ toast("저장하지 못했어요"); }
+  catch(e){ toast(failMsg(e, "저장하지 못했어요.")); }
   S.busy = false; render();
 }
 
@@ -1174,7 +1182,7 @@ async function loadSeed(){
     let n = 0;
     for (const [col, docs] of Object.entries(seed)) for (const [id, data] of Object.entries(docs)){ await FS.doc(col + "/" + id).set(data); n++; }
     toast(`견본 데이터 ${n}건을 불러왔어요`);
-  } catch(e){ toast("견본 데이터를 불러오지 못했어요"); }
+  } catch(e){ toast(failMsg(e, "견본 데이터를 불러오지 못했어요.")); }
   S.busy = false; render();
 }
 async function logAccess(){
@@ -1325,7 +1333,7 @@ function softRender(){
 }
 document.addEventListener("focusout", () => setTimeout(() => { if (S.pending) softRender(); }, 0));
 let toastT;
-function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), msg.length > 40 ? 7000 : 2600); }
 
 window.addEventListener("hashchange", () => {
   const h = location.hash;
@@ -1390,7 +1398,7 @@ document.addEventListener("click", async e => {
     case "cancel-edit": S.edit = null; S.drafts.edit = null; render(); break;
     case "del":
       if (S.confirmDel !== id){ S.confirmDel = id; render(); break; }
-      try { await FS.doc(el.dataset.col + "/" + id).delete(); toast("삭제했어요"); } catch(err){ toast("삭제하지 못했어요. 권한을 확인해 주세요."); }
+      try { await FS.doc(el.dataset.col + "/" + id).delete(); toast("삭제했어요"); } catch(err){ toast(failMsg(err, "삭제하지 못했어요.")); }
       S.confirmDel = null; render(); break;
     case "imgrm": { const key = el.closest("[data-draft]").dataset.draft, d = S.drafts[key], k = el.dataset.k; if (Array.isArray(d[k])) d[k].splice(Number(el.dataset.i), 1); else d[k] = ""; render(); break; }
   }
@@ -1459,7 +1467,7 @@ async function placeOrder(form){
     await FS.doc("orders/" + no).set(order);
     S.cart = []; saveCart(); S.drafts.checkout = null;
     S.busy = false; location.hash = "#/order/" + no;
-  } catch(err){ S.busy = false; render(); toast("주문을 보내지 못했어요. 잠시 후 다시 시도해 주세요."); }
+  } catch(err){ S.busy = false; render(); toast(failMsg(err, "주문을 보내지 못했어요.")); }
 }
 
 async function sendInquiry(form){
@@ -1474,7 +1482,7 @@ async function sendInquiry(form){
   try {
     await FS.collection("inquiries").add(q);
     S.drafts[key] = null; S.busy = false; render(); toast("문의를 보냈어요. 확인 후 연락드릴게요.");
-  } catch(err){ S.busy = false; render(); toast("문의를 보내지 못했어요. 잠시 후 다시 시도해 주세요."); }
+  } catch(err){ S.busy = false; render(); toast(failMsg(err, "문의를 보내지 못했어요.")); }
 }
 
 /* image: resize in the browser before upload (max 2400px, JPEG) */
@@ -1506,11 +1514,11 @@ async function uploadImages(input){
       const out = await shrink(file);
       const ext = out.type === "image/png" ? "png" : out.type === "image/webp" ? "webp" : out.type === "image/gif" ? "gif" : "jpg";
       const r = storageRef(fstore, `images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`);
-      await uploadBytes(r, out, {contentType: out.type || "image/jpeg", cacheControl: "public, max-age=31536000"});
-      const url = await getDownloadURL(r);
+      await withTimeout(uploadBytes(r, out, {contentType: out.type || "image/jpeg", cacheControl: "public, max-age=31536000"}), 120000);
+      const url = await withTimeout(getDownloadURL(r));
       if (multi){ d[k] = Array.isArray(d[k]) ? d[k] : []; d[k].push(url); } else d[k] = url;
     }
-  } catch(err){ toast("이미지를 올리지 못했어요" + (err && err.code ? ` (${err.code})` : "")); }
+  } catch(err){ toast(failMsg(err, "이미지를 올리지 못했어요.")); }
   S.uploading = null; render();
 }
 
@@ -1533,7 +1541,7 @@ async function saveItem(col, form){
     if (S.edit.id){ const old = S[col].find(x => x.id === S.edit.id) || {}; await FS.doc(col + "/" + S.edit.id).set({...data, createdAt: old.createdAt || Date.now(), updatedAt: Date.now()}); }
     else await FS.collection(col).add({...data, createdAt: Date.now(), updatedAt: Date.now()});
     S.edit = null; S.drafts.edit = null; toast("저장했어요");
-  } catch(err){ toast("저장하지 못했어요. 다시 로그인한 뒤 시도해 주세요."); }
+  } catch(err){ toast(failMsg(err, "저장하지 못했어요.")); }
   S.busy = false; render();
 }
 
@@ -1543,7 +1551,7 @@ async function saveProfile(form){
   PROFILE_FIELDS.forEach(f => data[f.k] = d[f.k] == null ? "" : String(d[f.k]).trim());
   S.busy = true; render();
   try { await FS.doc("site/profile").set({...data, updatedAt: Date.now()}); toast("저장했어요"); }
-  catch(err){ toast("저장하지 못했어요. 다시 로그인한 뒤 시도해 주세요."); }
+  catch(err){ toast(failMsg(err, "저장하지 못했어요.")); }
   S.busy = false; S.drafts.profile = null; render();
 }
 
@@ -1562,11 +1570,11 @@ async function setOrderStatus(oid, status){
       }
     }
     toast(`주문 상태를 '${status}'(으)로 바꿨어요${delta < 0 ? ", 재고 차감" : delta > 0 ? ", 재고 복구" : ""}`);
-  } catch(err){ toast("상태를 바꾸지 못했어요"); }
+  } catch(err){ toast(failMsg(err, "상태를 바꾸지 못했어요.")); }
 }
 async function setInqStatus(qid, status){
   try { await FS.doc("inquiries/" + qid).update({status}); toast("처리 상태를 바꿨어요"); }
-  catch(err){ toast("상태를 바꾸지 못했어요"); }
+  catch(err){ toast(failMsg(err, "상태를 바꾸지 못했어요.")); }
 }
 /* the price a customer saw vs. the current catalogue — flags tampered or stale totals */
 function expectedTotal(o){
