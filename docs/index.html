@@ -3,11 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>한국무용가 공식 홈페이지</title>
-<meta name="description" content="한국무용가 공식 홈페이지. 이매방류 승무, 살풀이춤, 태평무, 화랭이춤, 검무, 소고춤 공연과 워크숍 문의.">
+<!-- ───── 검색엔진, SNS 공유 정보 (네이버, 카카오톡 등은 이 부분을 읽습니다) ───── -->
+<title>국가무형유산 승무 이수자 '이가원'</title>
+<meta name="description" content="국가무형유산 승무 이수자 '이가원' 의 공식 홈페이지 입니다.">
+<meta name="keywords" content="승무, 이매방류 승무, 살풀이춤, 한국무용 공연 섭외, 한국전통춤, 한국전통무용, Koreantraditionaldance, seungmu, Monk's Dance">
+<link rel="canonical" href="https://www.gaoneway.com/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="한국무용가 공식 홈페이지">
-<meta property="og:description" content="이매방류 승무, 살풀이춤, 태평무, 화랭이춤, 검무, 소고춤 공연과 워크숍 문의.">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:site_name" content="이가원">
+<meta property="og:url" content="https://www.gaoneway.com/">
+<meta property="og:title" content="국가무형유산 승무 이수자 '이가원'">
+<meta property="og:description" content="국가무형유산 승무 이수자 '이가원' 의 공식 홈페이지 입니다.">
+<meta property="og:image" content="https://www.gaoneway.com/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<!-- ──────────────────────────────────────────────────────────────── -->
 <meta name="theme-color" content="#0B0B0A">
 <link rel="icon" href="favicon.ico" sizes="48x48">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -1071,14 +1082,17 @@ function metaCode(m){
 }
 function applyMeta(){
   const m = S.meta || {};
-  document.title = m.title || (S.profile.name ? `${S.profile.name} | 한국무용가` : "한국무용가 공식 홈페이지");
-  document.querySelectorAll("meta[data-managed]").forEach(el => el.remove());
-  metaList(m, false).forEach(x => { const el = document.createElement("meta"); el.setAttribute(x.attr, x.key); el.setAttribute("content", x.val); el.setAttribute("data-managed", "1"); document.head.appendChild(el); });
+  if (m.title) document.title = m.title;
+  metaList(m, false).forEach(x => {
+    let el = document.head.querySelector(`meta[${x.attr}="${x.key}"]`);
+    if (!el){ el = document.createElement("meta"); el.setAttribute(x.attr, x.key); document.head.appendChild(el); }
+    el.setAttribute("content", x.val);
+  });
 }
 function adminMeta(){
   const d = draft("meta", S.meta);
   return `<div class="sec-head" style="margin-bottom:12px"><h2>메타 태그</h2></div>
-  <p class="muted" style="margin-bottom:20px">검색엔진과 SNS 공유에 쓰이는 정보를 입력하면 아래에 &lt;head&gt;용 코드가 만들어져요. 저장하면 화면에 바로 적용되지만, 링크 미리보기와 네이버 검색까지 반영하려면 생성된 코드를 index.html에 붙여 넣어 주세요.</p>
+  <p class="muted" style="margin-bottom:20px">검색엔진과 SNS 공유에 쓰이는 정보를 입력하면 아래에 &lt;head&gt;용 코드가 만들어져요. 저장하면 열려 있는 화면에만 적용돼요. <b>네이버 검색, 카카오톡 링크 미리보기는 index.html 파일 안에 적힌 값만 읽기 때문에</b>, 내용을 바꾼 뒤에는 아래 생성된 코드로 index.html의 맨 위 메타 태그 부분을 바꿔 다시 올려야 반영돼요.</p>
   <form class="form" data-form="meta-save" data-draft="meta" novalidate>${META_FIELDS.map(f => fieldHtml(f, d, "meta")).join("")}
   <div class="fld wide"><button class="btn" type="submit" ${S.busy || S.uploading ? "disabled" : ""}>${S.busy ? "저장하는 중…" : "저장하고 적용"}</button></div></form>
   <div class="fieldset" style="margin-top:36px"><h3>생성된 코드</h3>
