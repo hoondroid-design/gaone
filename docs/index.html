@@ -333,6 +333,10 @@ p{margin:0 0 1em}
 .sd-grid h1{font-size:clamp(1.6rem,3.4vw,2.4rem);margin:4px 0 18px}
 .sd-poster img{width:100%;height:auto;border:1px solid var(--line)}
 @media (max-width:760px){.sd-grid{grid-template-columns:1fr}}
+.sbadge{display:inline-block;font-size:.72rem;font-weight:600;letter-spacing:.02em;padding:2px 8px;border:1px solid currentColor;vertical-align:1px;margin-right:4px;white-space:nowrap}
+.sbadge.soon{color:var(--brass)}
+.sbadge.now{color:#fff;background:var(--kasa);border-color:var(--kasa)}
+.sbadge.end{color:var(--muted)}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -507,11 +511,29 @@ select.sort{padding:8px 12px;border:1px solid var(--line);background:var(--paper
 /* admin */
 .admin{display:grid;grid-template-columns:200px 1fr;gap:36px;padding-bottom:80px;align-items:start}
 @media (max-width:820px){.admin{grid-template-columns:1fr}}
-.admin-nav{display:flex;flex-direction:column;border-top:1px solid var(--ink)}
-.admin-nav a{padding:10px 4px;border-bottom:1px solid var(--line);text-decoration:none;display:flex;justify-content:space-between}
+.admin-nav{display:flex;flex-direction:column;gap:14px;position:sticky;top:calc(var(--hdr) + 16px);max-height:calc(100vh - var(--hdr) - 32px);overflow:auto;padding-right:4px}
+.ag{border-top:1px solid var(--ink)}
+.ag.common{border-top-color:var(--brass)}
+.ag-h{margin:0;padding:8px 4px 4px;font-size:.78rem;font-weight:600;letter-spacing:.04em;color:var(--ink)}
+.ag-h span{color:var(--muted);font-weight:400;margin-left:4px}
+.ag.common .ag-h{color:var(--brass)}
+.admin-nav a{padding:7px 4px 7px 12px;border-bottom:1px solid var(--line);text-decoration:none;display:flex;justify-content:space-between;align-items:center;font-size:.9rem;gap:8px}
+.admin-nav a:hover{background:var(--surface)}
 .admin-nav a.on{color:var(--kasa);font-weight:600}
 .admin-nav a b{font-size:.75rem;background:var(--kasa);color:#fff;border-radius:999px;padding:0 7px}
-@media (max-width:820px){.admin-nav{flex-direction:row;flex-wrap:wrap;gap:4px;border:0}.admin-nav a{border:1px solid var(--line);padding:6px 12px;border-radius:999px}}
+.admin-sel{display:none}
+.crumb{font-size:.82rem;color:var(--muted);margin:0 0 14px}
+.crumb span{opacity:.8}
+.crumb b{color:var(--ink);font-weight:500}
+.guide-tbl{width:100%;border-collapse:collapse;font-size:.9rem}
+.guide-tbl th,.guide-tbl td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.guide-tbl th{color:var(--muted);font-weight:500;border-bottom-color:var(--ink)}
+.guide-tbl td:first-child{white-space:nowrap}
+.scards a{border:1px solid var(--line);padding:14px;text-decoration:none;color:inherit}
+.scards a:hover{border-color:var(--ink)}
+.scards a span{display:block;font-size:.8rem;color:var(--muted)}
+.scards a b{font-size:1.6rem;font-family:var(--serif)}
+@media (max-width:820px){.admin-nav{display:none}.admin-sel{display:block;margin-bottom:10px}.admin-sel select{width:100%;padding:12px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);font-size:1rem}}
 .alist{border-top:1px solid var(--ink)}
 .arow{display:grid;grid-template-columns:56px 1fr auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .arow .at{width:56px;height:56px;background:var(--surface);overflow:hidden}
@@ -870,6 +892,9 @@ const WD = ["일", "월", "화", "수", "목", "금", "토"];
 function dLabel(d){ if (!d) return ""; return `${d.replace(/-/g, ".")} (${WD[new Date(d + "T12:00:00+09:00").getUTCDay()]})`; }
 function schedWhen(x){ return `${dLabel(x.date)}${x.time ? " " + x.time : ""}${x.endDate && x.endDate !== x.date ? ` ~ ${dLabel(x.endDate)}` : ""}`; }
 function isPast(x){ return String(x.endDate || x.date || "") < todayKST(); }
+/* 접속한 날(한국 시간) 기준 공연 상태: 공연예정 / 공연중 / 공연종료 */
+function schedStatus(x){ const t = todayKST(), s0 = String(x.date || ""), e0 = String(x.endDate || x.date || ""); return e0 < t ? "공연종료" : s0 <= t ? "공연중" : "공연예정"; }
+function schedBadge(x){ const st = schedStatus(x); return `<span class="sbadge ${st === "공연중" ? "now" : st === "공연종료" ? "end" : "soon"}">${st}</span>`; }
 function allSchedules(){
   const legacy = (S.news || []).filter(n => n.type === "일정").map(n => ({id: "n-" + n.id, legacy: n.id, title: n.title, date: n.date, venue: n.venue || "", summary: n.body || n.summary || "", poster: n.image || "", ticketUrl: n.link || ""}));
   return [...(S.schedules || []), ...legacy].sort(SORTERS.schedules);
@@ -879,7 +904,7 @@ function schedCard(x, big){
   return `<article class="sched ${big ? "big" : ""} ${isPast(x) ? "past" : ""}">
     <a class="sched-poster" href="#/schedule/${encodeURIComponent(x.id)}" aria-label="${esc(x.title)} 자세히">${x.poster ? `<img src="${blob(x.poster)}" alt="${esc(x.title)} 포스터" loading="lazy">` : `<span class="sched-noposter">${esc(x.title)}</span>`}</a>
     <div class="sched-info">
-      <p class="sched-when">${esc(schedWhen(x))}${isPast(x) ? ` <span class="muted">지난 공연</span>` : ""}</p>
+      <p class="sched-when">${schedBadge(x)} ${esc(schedWhen(x))}</p>
       <h3><a href="#/schedule/${encodeURIComponent(x.id)}">${esc(x.title)}</a></h3>
       ${x.venue ? `<p class="sched-venue">${esc(x.venue)}</p>` : ""}
       ${x.summary && big ? `<p class="sched-sum">${esc(String(x.summary).split(/\n\s*\n/)[0]).slice(0, 160)}</p>` : ""}
@@ -896,16 +921,16 @@ function vSchedule(id){
     const ext = /^https?:\/\//i.test(String(x.ticketUrl || ""));
     return `<div class="wrap"><article class="sched-detail"><a href="#/schedule" class="muted" style="font-size:.88rem">공연일정 목록</a>
       <div class="sd-grid">${x.poster ? `<div class="sd-poster"><img src="${blob(x.poster)}" alt="${esc(x.title)} 포스터"></div>` : ""}
-      <div><p class="sched-when" style="margin-top:16px">${esc(schedWhen(x))}${isPast(x) ? ` <span class="muted">지난 공연</span>` : ""}</p><h1>${esc(x.title)}</h1>
-        <dl class="kv"><dt>일시</dt><dd>${esc(schedWhen(x))}</dd><dt>장소</dt><dd>${esc(x.venue || "")}${x.address ? `<br><span class="muted">${esc(x.address)}</span>` : ""}</dd>${x.price ? `<dt>관람료</dt><dd>${esc(x.price)}</dd>` : ""}${x.ticketName || x.ticketUrl ? `<dt>예매처</dt><dd>${esc(x.ticketName || "예매 페이지")}</dd>` : ""}</dl>
+      <div><p class="sched-when" style="margin-top:16px">${schedBadge(x)} ${esc(schedWhen(x))}</p><h1>${esc(x.title)}</h1>
+        <dl class="kv"><dt>상태</dt><dd>${schedBadge(x)}</dd><dt>일시</dt><dd>${esc(schedWhen(x))}</dd><dt>장소</dt><dd>${esc(x.venue || "")}${x.address ? `<br><span class="muted">${esc(x.address)}</span>` : ""}</dd>${x.price ? `<dt>관람료</dt><dd>${esc(x.price)}</dd>` : ""}${x.ticketName || x.ticketUrl ? `<dt>예매처</dt><dd>${esc(x.ticketName || "예매 페이지")}</dd>` : ""}</dl>
         ${x.ticketUrl && ext && !isPast(x) ? `<a class="btn kasa" href="${esc(x.ticketUrl)}" target="_blank" rel="noopener">예매하기</a>` : ""}
         ${x.summary ? `<div class="prose" style="margin-top:24px">${paras(x.summary)}</div>` : ""}</div></div></article></div>`;
   }
   const up = all.filter(x => !isPast(x)), past = all.filter(isPast).reverse();
   return `<div class="wrap page-head"><h1>주요소식 News</h1><p>공연일정과 언론보도를 모았습니다.</p></div>
   <div class="wrap" style="padding-bottom:80px">${newsTabs("schedule")}
-    <h2 class="sub-h">다가오는 공연</h2>${up.length ? `<div class="scheds">${up.map(x => schedCard(x, true)).join("")}</div>` : (S.loaded ? `<div class="empty">예정된 공연이 없어요.</div>` : loading())}
-    ${past.length ? `<h2 class="sub-h" style="margin-top:48px">지난 공연</h2><div class="scheds">${past.map(x => schedCard(x, false)).join("")}</div>` : ""}
+    <h2 class="sub-h">공연중 · 공연예정</h2>${up.length ? `<div class="scheds">${up.map(x => schedCard(x, true)).join("")}</div>` : (S.loaded ? `<div class="empty">예정된 공연이 없어요.</div>` : loading())}
+    ${past.length ? `<h2 class="sub-h" style="margin-top:48px">공연종료</h2><div class="scheds">${past.map(x => schedCard(x, false)).join("")}</div>` : ""}
   </div>`;
 }
 /* ---------- 검색 노출: schema.org 공연(DanceEvent) 정보 ---------- */
@@ -1428,7 +1453,7 @@ const SCHEMA = {
     {k:"price",l:"관람료",hint:"예: 전석 30,000원, 무료"},
     {k:"ticketName",l:"예매처 이름",hint:"예: 인터파크 티켓, 국립국악원"},{k:"ticketUrl",l:"예매 링크",wide:1,hint:"https://로 시작하는 예매 페이지 주소"},
     {k:"poster",l:"포스터 이미지",t:"image",wide:1,hint:"세로형 포스터(예: 1080 × 1528px)를 권해요. 검색 결과와 공유 미리보기에도 쓰여요."}],
-    sub: x => `${schedWhen(x)}, ${x.venue || ""}${isPast(x) ? ", 지난 공연" : ""}`, thumb: x => x.poster },
+    sub: x => `${schedWhen(x)}, ${x.venue || ""}`, badgeHtml: x => schedBadge(x), thumb: x => x.poster },
   popups: { label: "팝업", fields: [
     {k:"title",l:"관리용 이름",req:1,wide:1,hint:"관리자만 보는 이름이에요. 예: 11월 정기공연 안내"},
     {k:"start",l:"게시 시작일",t:"date",req:1,hint:"이 날 0시(한국 시간)부터 보여요."},{k:"end",l:"게시 종료일",t:"date",req:1,hint:"이 날 밤 12시(한국 시간)까지 보이고 자동으로 내려가요."},
@@ -1443,13 +1468,13 @@ const SCHEMA = {
     {k:"order",l:"순서",t:"number",hint:"작은 숫자가 먼저 나와요."},{k:"focus",l:"사진 기준점",t:"select",opts:["가운데","위쪽","아래쪽"],hint:"화면 비율에 따라 잘릴 때 어느 쪽을 살릴지 정해요."},
     {k:"caption",l:"사진 설명 (선택)",wide:1,hint:"예: 2025 개인 공연, 승무. 사진 오른쪽 위에 작게 표시돼요."}],
     title: x => x.caption || "슬라이드 사진", sub: x => `순서 ${x.order ?? "-"}${x.focus ? ", " + x.focus : ""}`, thumb: x => x.image },
-  performances: { label: "공연 기록", fields: [
+  performances: { label: "공연 레퍼런스", fields: [
     {k:"title",l:"공연명",req:1,wide:1},{k:"date",l:"공연일",t:"date",req:1},{k:"highlight",l:"주요 공연 표시",t:"select",opts:["주요 공연"],hint:"'주요 공연'을 고르면 Artist 페이지 위쪽에 카드로 크게 보여요."},
     {k:"venue",l:"장소"},{k:"host",l:"주최, 주관"},{k:"role",l:"역할",t:"select",opts:["출연","안무","출연, 안무","예술감독","지도"]},
     {k:"repertoire",l:"레퍼토리",t:"select",opts:["승무","살풀이춤","태평무","화랭이춤","검무","소고춤","창작, 협업","기타"]},
     {k:"description",l:"한 줄 설명",t:"textarea",rows:2,wide:1},{k:"link",l:"관련 링크 (기사, 영상, 팸플릿)",wide:1},{k:"image",l:"대표 이미지",t:"image",wide:1}],
     sub: x => `${fmtDate(x.date)}${x.venue ? ", " + x.venue : ""}${x.highlight ? ", 주요 공연" : ""}`, thumb: x => x.image },
-  news: { label: "주요소식(언론)", fields: [
+  news: { label: "언론보도", fields: [
     {k:"title",l:"제목",req:1,wide:1},{k:"type",l:"분류",t:"select",opts:["언론 보도","인터뷰","평론","칼럼","일정"],req:1,hint:"공연 일정은 '공연일정' 메뉴에서 등록해 주세요. 여기의 '일정'은 예전에 등록한 글을 위해 남겨 둔 분류예요."},{k:"date",l:"날짜",t:"date",req:1},
     {k:"source",l:"매체, 출처"},{k:"summary",l:"요약",t:"textarea",rows:2,wide:1},{k:"body",l:"본문",t:"textarea",rows:10,wide:1,hint:"빈 줄로 문단을 나눠요."},
     {k:"link",l:"원문 링크",wide:1},{k:"image",l:"대표 이미지",t:"image",wide:1}],
@@ -1751,6 +1776,7 @@ async function logAccess(action){
   try { await FS.collection("adminLog").add({t: Date.now(), uid: S.uid, email: (S.authUser && S.authUser.email) || "", action: action || "관리자 로그인", ua: String(navigator.userAgent || "").slice(0, 160)}); } catch(e){}
 }
 const IDLE_MS = 20 * 60 * 1000;
+let dayNow = ""; setInterval(() => { const d = todayKST(); if (dayNow && d !== dayNow) softRender(); dayNow = d; }, 60000);
 setInterval(() => { if (S.mkt && !stepUpValid()){ S.mkt = null; if (route()[1] === "marketing") render(); } }, 15000);
 ["click", "keydown", "scroll", "touchstart"].forEach(ev => document.addEventListener(ev, () => { S.lastAct = Date.now(); }, {passive: true}));
 setInterval(() => { if (S.authed && Date.now() - (S.lastAct || 0) > IDLE_MS){ logout(); toast("20분 동안 사용하지 않아 자동으로 로그아웃했어요"); } }, 30000);
@@ -1776,30 +1802,77 @@ async function logout(){
   toast("로그아웃했어요");
 }
 
+/* 관리자 메뉴: 손님 화면의 메인 메뉴 순서대로 묶고, 여러 페이지에 함께 쓰이는 것은 '사이트 전체'로 분리 */
+function adminGroups(){
+  const newOrders = S.allOrders.filter(o => o.status === "입금대기").length;
+  const newInq = S.inquiries.filter(q => q.status === "새 문의").length;
+  return [
+    {g: "관리 홈", items: [["guide", "편집 안내 · 현황"]]},
+    {g: "Home", ko: "메인페이지", items: [["hero", "첫 화면 문구"], ["slides", "메인 슬라이드"], ["popups", "팝업"]]},
+    {g: "About", ko: "레퍼토리", items: [["repertoire", "레퍼토리 설명"]]},
+    {g: "Artist", ko: "아티스트", items: [["artistProfile", "프로필 · 이력 · 수상"], ["performances", "공연 레퍼런스"]]},
+    {g: "Portfolio", ko: "포트폴리오", items: [["videos", "영상"], ["gallery", "갤러리"], ["projects", "프로젝트"]]},
+    {g: "News", ko: "주요소식", items: [["schedules", "공연일정"], ["news", "언론보도"]]},
+    {g: "Store", ko: "스토어", items: [["orders", "주문", newOrders], ["products", "상품 · 재고"], ["store", "배송비 · 입금 계좌"], ["marketing", "마케팅DB"]]},
+    {g: "Contact", ko: "문의", items: [["inquiries", "받은 문의", newInq]]},
+    {g: "사이트 전체", ko: "여러 페이지 공통", common: true, items: [["basic", "기본 정보 (이름 · 연락처 · SNS)"], ["brand", "홈페이지 제목 · 파비콘"], ["footer", "풋터 (사업자 정보 · 저작권)"], ["terms", "약관 (개인정보 · 마케팅 동의)"], ["meta", "검색 · 공유 설정"]]},
+    {g: "운영", ko: "관리자 전용", items: [["stats", "방문 통계"], ["account", "보안 · 계정"]]}
+  ];
+}
+function adminGuide(){
+  const newOrders = S.allOrders.filter(o => o.status === "입금대기").length, newInq = S.inquiries.filter(q => q.status === "새 문의").length;
+  const livePop = (S.popups || []).filter(x => popState(x) === "게시 중").length, upcoming = allSchedules().filter(x => !isPast(x)).length;
+  const L = (k, t) => `<a href="#/admin/${k}">${t}</a>`;
+  const rows = [
+    ["Home 메인페이지", "맨 위 큰 문구, 사진 슬라이드, 팝업", `${L("hero", "첫 화면 문구")} · ${L("slides", "메인 슬라이드")} · ${L("popups", "팝업")}`],
+    ["About 레퍼토리", "여섯 가지 춤 소개 카드 아래 '나의 ○○' 설명", L("repertoire", "레퍼토리 설명")],
+    ["Artist 아티스트", "프로필 사진, 철학, 사승 관계, 이력, 수상, 지도 경력, 공연 레퍼런스", `${L("artistProfile", "프로필 · 이력 · 수상")} · ${L("performances", "공연 레퍼런스")}`],
+    ["Portfolio 포트폴리오", "공연 영상, 사진, 협업 프로젝트", `${L("videos", "영상")} · ${L("gallery", "갤러리")} · ${L("projects", "프로젝트")}`],
+    ["News 주요소식", "공연일정(메인페이지에도 표시), 언론보도(메인페이지 '뉴스'에도 표시)", `${L("schedules", "공연일정")} · ${L("news", "언론보도")}`],
+    ["Store 스토어", "상품, 사이즈별 재고, 배송비, 입금 계좌, 주문 처리", `${L("products", "상품 · 재고")} · ${L("store", "배송비 · 입금 계좌")} · ${L("orders", "주문")}`],
+    ["Contact 문의", "공연·워크숍, 협업, 스토어 문의 접수", L("inquiries", "받은 문의")],
+    ["여러 페이지 공통", "무용가 이름과 직함, 연락처, SNS, 맨 위 제목, 파비콘, 풋터, 약관, 검색 노출", `${L("basic", "기본 정보")} · ${L("brand", "제목 · 파비콘")} · ${L("footer", "풋터")} · ${L("terms", "약관")} · ${L("meta", "검색 · 공유")}`]
+  ];
+  return `<div class="sec-head" style="margin-bottom:12px"><h2>편집 안내 · 현황</h2></div>
+  <div class="scards"><a href="#/admin/orders"><span>입금 대기 주문</span><b>${newOrders}</b></a><a href="#/admin/inquiries"><span>새 문의</span><b>${newInq}</b></a><a href="#/admin/schedules"><span>다가오는 공연</span><b>${upcoming}</b></a><a href="#/admin/popups"><span>게시 중 팝업</span><b>${livePop}</b></a></div>
+  <section class="sbox"><h3>손님 화면의 메뉴별로 어디서 고치나요?</h3>
+    <div class="scroll-x"><table class="guide-tbl"><thead><tr><th>손님 화면 메뉴</th><th>보이는 내용</th><th>편집하는 곳</th></tr></thead><tbody>${rows.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("")}</tbody></table></div>
+    <p class="hint" style="margin-top:10px">메인페이지의 공연일정, 공연 기록, 스토어, 뉴스 섹션은 각 메뉴의 내용을 미리보기로 보여 주는 것이라, 해당 메뉴에서 고치면 메인페이지에도 함께 바뀌어요. '사이트 전체'의 항목은 여러 페이지에 동시에 쓰이기 때문에 따로 모아 두었어요.</p>
+  </section>`;
+}
 function vAdmin(tab){
   if (!S.loaded) return `<div class="wrap done"><p class="muted">불러오는 중…</p></div>`;
   if (!S.authed) return vLogin();
-  tab = tab || "orders";
-  const newOrders = S.allOrders.filter(o => o.status === "입금대기").length;
-  const newInq = S.inquiries.filter(q => q.status === "새 문의").length;
-  const nav = [["orders","주문",newOrders],["stats","방문 통계"],["products","상품"],["store","스토어 설정"],["marketing","마케팅DB"],["terms","약관 관리"],["inquiries","문의",newInq],["slides","메인 슬라이드"],["popups","팝업 관리"],["profile","무용가 정보"],["performances","공연 기록"],["schedules","공연일정"],["news","주요소식(언론)"],["videos","영상"],["gallery","갤러리"],["projects","프로젝트"],["footer","풋터 관리"],["meta","메타 태그"],["account","보안, 계정"]];
+  if (tab === "profile") tab = "basic";
+  tab = tab || "guide";
+  const groups = adminGroups();
+  const grp = groups.find(g => g.items.some(it => it[0] === tab)) || groups[0];
+  const item = grp.items.find(it => it[0] === tab) || grp.items[0];
   let body;
-  if (tab === "orders") body = adminOrders();
+  if (tab === "guide") body = adminGuide();
+  else if (tab === "orders") body = adminOrders();
   else if (tab === "stats") body = adminStats();
   else if (tab === "schedules" && !(S.edit && S.edit.col === "schedules")) body = adminCollection("schedules") + schedSeoBox();
-  else if (tab === "terms") body = docForm("terms", "약관 관리", "손님에게 보이는 약관을 한곳에서 관리해요. 개인정보처리방침은 풋터의 '개인정보처리방침' 페이지와 주문서, 문의 양식의 '내용 보기'에 연결돼요. 상품별 구매 약관(필수)은 각 상품 설정에서 따로 적어요.");
-  else if (tab === "footer") body = docForm("footer", "풋터 관리", "모든 페이지 맨 아래에 보이는 사업자 정보와 저작권 안내를 관리해요.");
-  else if (tab === "slides" && !(S.edit && S.edit.col === "slides")) body = `<div class="brandbox">${docForm("brand", "홈페이지 제목과 파비콘", "")}</div>` + adminCollection("slides");
+  else if (tab === "hero") body = docForm("hero", "첫 화면 문구", "메인페이지 맨 위(사진 슬라이드 위)에 크게 보이는 문구예요.");
+  else if (tab === "repertoire") body = docForm("repertoire", "레퍼토리 설명", "About(레퍼토리) 페이지의 각 춤 카드 아래에 '나의 ○○'로 함께 보여요. 공식 자료 설명 아래에 무용가 본인의 사사 관계, 이수 여부, 해석을 적어 주세요.");
+  else if (tab === "artistProfile") body = docForm("artistProfile", "프로필 · 이력 · 수상", "Artist(아티스트) 페이지에 보이는 내용이에요. 무용가 이름과 직함은 여러 페이지에 함께 쓰여 '사이트 전체 → 기본 정보'에 있어요.");
+  else if (tab === "basic") body = docForm("basic", "기본 정보 (이름 · 연락처 · SNS)", "여러 페이지에 함께 쓰이는 정보예요. 이름과 직함은 메인페이지 첫 화면, Artist 페이지, 풋터에, 연락처는 Contact 페이지와 풋터에, SNS는 풋터와 Contact 페이지에 보여요.");
+  else if (tab === "brand") body = docForm("brand", "홈페이지 제목 · 파비콘", "모든 페이지 맨 위 왼쪽 제목과 브라우저 탭 아이콘이에요.");
+  else if (tab === "terms") body = docForm("terms", "약관 (개인정보 · 마케팅 동의)", "개인정보처리방침은 풋터의 '개인정보처리방침' 페이지와 주문서, 문의 양식의 '내용 보기'에 연결돼요. 마케팅 활용 동의는 모든 주문서에 [선택] 체크박스로 나와요. 상품별 구매 약관(필수)은 각 상품 설정에서 적어요.");
+  else if (tab === "footer") body = docForm("footer", "풋터 (사업자 정보 · 저작권)", "모든 페이지 맨 아래에 보이는 사업자 정보와 저작권 안내예요.");
+  else if (tab === "slides" && !(S.edit && S.edit.col === "slides")) body = adminCollection("slides");
   else if (tab === "marketing") body = adminMarketing();
   else if (tab === "inquiries") body = adminInquiries();
-  else if (tab === "profile") body = adminProfile();
   else if (tab === "account") body = adminAccount();
   else if (tab === "meta") body = adminMeta();
   else if (tab === "store") body = adminStore();
   else if (SCHEMA[tab]) body = adminCollection(tab);
   else body = "";
+  const crumb = `<p class="crumb">${esc(grp.g)}${grp.ko ? ` <span>${esc(grp.ko)}</span>` : ""} › <b>${esc(item[1])}</b></p>`;
+  const navHtml = groups.map(g => `<div class="ag ${g.common ? "common" : ""}"><p class="ag-h">${esc(g.g)}${g.ko ? ` <span>${esc(g.ko)}</span>` : ""}</p>${g.items.map(([k, l, n]) => `<a href="#/admin/${k}" class="${tab === k ? "on" : ""}" ${tab === k ? 'aria-current="page"' : ""}><span>${esc(l)}</span>${n ? `<b>${n}</b>` : ""}</a>`).join("")}</div>`).join("");
+  const sel = `<label class="admin-sel"><span class="sr">관리 메뉴 선택</span><select data-act-change="adminnav">${groups.map(g => `<optgroup label="${esc(g.g + (g.ko ? " · " + g.ko : ""))}">${g.items.map(([k, l, n]) => `<option value="${k}" ${tab === k ? "selected" : ""}>${esc(l)}${n ? ` (${n})` : ""}</option>`).join("")}</optgroup>`).join("")}</select></label>`;
   return `<div class="wrap page-head" style="display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap"><div><h1>관리자</h1><p>여기서 바꾼 내용은 저장하는 즉시 사이트에 반영돼요.</p></div><div class="btn-row"><button class="btn ghost sm" data-act="logout">로그아웃</button></div></div>
-  <div class="wrap admin"><nav class="admin-nav" aria-label="관리 메뉴">${nav.map(([k, l, n]) => `<a href="#/admin/${k}" class="${tab === k ? "on" : ""}"><span>${l}</span>${n ? `<b>${n}</b>` : ""}</a>`).join("")}</nav><div>${body}</div></div>`;
+  <div class="wrap admin"><nav class="admin-nav" aria-label="관리 메뉴">${navHtml}</nav><div>${sel}${crumb}${body}</div></div>`;
 }
 
 function stockTable(x){
@@ -1883,7 +1956,7 @@ function adminCollection(col){
   return `<div class="sec-head" style="margin-bottom:20px"><h2>${sch.label} <span class="muted" style="font-size:1rem">${list.length}${col === "popups" ? " / 최대 2" : ""}</span></h2><button class="btn sm" data-act="new" data-col="${col}" ${col === "popups" && list.length >= POP_MAX ? "disabled" : ""}>새 ${sch.label} 등록</button></div>
   ${col === "popups" ? `<p class="hint" style="margin:-8px 0 16px">팝업은 최대 ${POP_MAX}개까지 등록할 수 있어요. 게시 기간에 맞춰 홈 화면에 자동으로 보이고 내려가요. 새 팝업을 올리려면 지난 팝업을 삭제해 주세요.</p>` : ""}
   ${list.length ? `<div class="alist">${list.map(x => `<div class="arow"><div class="at">${sch.thumb ? imgOr(sch.thumb(x), x.id, "") : `<div style="display:grid;place-items:center;height:100%;color:var(--muted)">${col === "videos" ? "▶" : "글"}</div>`}</div>
-    <div><div class="an">${esc(title(x))}${sch.badge && sch.badge(x) ? ` <span class="so-tag">${sch.badge(x)}</span>` : ""}</div>${sch.stock ? sch.stock(x) : ""}<div class="as">${esc(sch.sub(x))}</div></div>
+    <div><div class="an">${esc(title(x))}${sch.badge && sch.badge(x) ? ` <span class="so-tag">${sch.badge(x)}</span>` : ""}${sch.badgeHtml ? " " + sch.badgeHtml(x) : ""}</div>${sch.stock ? sch.stock(x) : ""}<div class="as">${esc(sch.sub(x))}</div></div>
     <div class="aa"><button class="btn ghost sm" data-act="edit" data-col="${col}" data-id="${esc(x.id)}">수정</button><button class="btn ghost sm" data-act="del" data-col="${col}" data-id="${esc(x.id)}" style="${S.confirmDel === x.id ? "color:var(--kasa);border-color:var(--kasa)" : ""}">${S.confirmDel === x.id ? "한 번 더 눌러 삭제" : "삭제"}</button></div></div>`).join("")}</div>`
   : `<div class="empty">아직 등록된 ${sch.label}이 없어요. 오른쪽 위 버튼으로 첫 ${sch.label}을 등록해 보세요.</div>`}`;
 }
@@ -2397,6 +2470,7 @@ document.addEventListener("change", async e => {
       render(); document.querySelector("[data-act=confirm-ok]")?.focus();
     } else await setOrderStatus(t.dataset.oid, nv);
   }
+  else if (t.dataset.actChange === "adminnav"){ location.hash = "#/admin/" + t.value; }
   else if (t.dataset.af){ S.af = S.af || {}; S.af[t.dataset.af] = t.value; render(); }
   else if (t.dataset.mq){ S.mktQ = t.value; render(); }
   else if (t.dataset.actChange === "qstatus") await setInqStatus(t.dataset.qid, t.value);
@@ -2614,7 +2688,12 @@ async function saveItem(col, form){
   S.busy = false; render();
 }
 
-const DOC_FORMS = {profile: PROFILE_FIELDS, footer: FOOTER_FIELDS, terms: TERMS_FIELDS, brand: BRAND_FIELDS};
+const pickF = keys => keys.map(k => PROFILE_FIELDS.find(f => f.k === k)).filter(Boolean);
+const DOC_FORMS = {profile: PROFILE_FIELDS, footer: FOOTER_FIELDS, terms: TERMS_FIELDS, brand: BRAND_FIELDS,
+  hero: pickF(["heroText"]),
+  basic: pickF(["name", "nameEn", "title", "email", "phone", "youtube", "instagram"]),
+  artistProfile: pickF(["photo", "philosophy", "lineage", "career", "awards", "teaching"]),
+  repertoire: pickF(["rep_seungmu", "rep_salpuri", "rep_taepyeong", "rep_hwarang", "rep_geommu", "rep_sogo"])};
 function docForm(key, title, intro){
   const d = draft(key, S.profile);
   return `${title ? `<div class="sec-head" style="margin-bottom:12px"><h2>${title}</h2></div>` : ""}${intro ? `<p class="muted" style="margin-bottom:18px">${intro}</p>` : ""}
