@@ -189,6 +189,24 @@ p{margin:0 0 1em}
 @media (max-width:700px){.cv-block{grid-template-columns:1fr;gap:8px}.cv-list li{grid-template-columns:84px 1fr;gap:10px}}
 .hero-awards{margin-top:32px;border-top:1px solid var(--ink);padding-top:14px}
 .hero-awards h2{font-size:1.1rem;margin-bottom:6px}
+.optbox{margin:4px 0 18px}
+.optlabel{font-size:.9rem;margin:0 0 8px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opts button{min-width:56px;padding:10px 14px;border:1px solid var(--line);background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.2}
+.opts button small{font-size:.7rem;color:var(--muted)}
+.opts button.on{border-color:var(--ink);background:var(--ink);color:var(--on-ink)}
+.opts button.on small{color:var(--on-ink)}
+.opts button:disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+.copt{font-size:.85rem;color:var(--ink);opacity:.85;margin-top:2px}
+.lbl{font-size:.88rem;font-weight:500}
+.optrows{display:flex;flex-direction:column;gap:8px}
+.optrow{display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:center}
+.optrow input{padding:10px 12px;border:1px solid var(--line);background:var(--paper);border-radius:2px;width:100%}
+.soldout.part{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.so-tag{display:inline-block;font-size:.7rem;font-weight:600;letter-spacing:.04em;color:#fff;background:var(--kasa);padding:2px 7px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+.lookup-form{grid-template-columns:1fr 1fr 1fr auto;align-items:end;max-width:960px}
+@media (max-width:860px){.lookup-form{grid-template-columns:1fr}}
+.ono{font-size:1.3rem;letter-spacing:.04em}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -445,7 +463,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 48px;font-size:.88rem;col
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, where, orderBy, limit, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword, signOut, multiFactor, TotpMultiFactorGenerator, getMultiFactorResolver, sendPasswordResetEmail, sendEmailVerification, reload } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { FIREBASE_CONFIG, ADMIN_UIDS, REQUIRE_MFA, SITE_NAME } from "./config.js";
@@ -461,7 +479,10 @@ const lines = s => String(s || "").split("\n").map(x => x.trim()).filter(Boolean
 const paras = s => String(s || "").split(/\n\s*\n/).map(p => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
 const fmtDate = d => { if (!d) return ""; const t = typeof d === "number" ? new Date(d) : new Date(d + "T00:00:00"); if (isNaN(t)) return esc(d); return `${t.getFullYear()}.${String(t.getMonth()+1).padStart(2,"0")}.${String(t.getDate()).padStart(2,"0")}`; };
 const ytId = u => { const m = String(u || "").match(/(?:youtu\.be\/|v=|embed\/|shorts\/|live\/)([\w-]{11})/); return m ? m[1] : null; };
-const SHIP = 3000, FREE_SHIP = 50000;
+/* shipping: set in admin → 스토어 설정 (site/store). defaults until loaded */
+const shipCfg = () => { const c = S.store || {}; return {free: c.shipMode === "무료", fee: Math.max(0, Number(c.shipFee ?? 3000) || 0), over: c.freeOver === null || c.freeOver === "" || c.freeOver === undefined ? null : Math.max(0, Number(c.freeOver) || 0)}; };
+function shipFor(sub){ const c = shipCfg(); if (sub <= 0 || c.free || c.fee === 0) return 0; if (c.over !== null && c.over > 0 && sub >= c.over) return 0; return c.fee; }
+function shipText(){ const c = shipCfg(); if (c.free || c.fee === 0) return "무료"; return c.over ? `${won(c.fee)} (${won(c.over)} 이상 무료)` : won(c.fee); }
 
 /* ---------- firebase ---------- */
 const CONFIGURED = !!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && !/^YOUR_/.test(FIREBASE_CONFIG.apiKey));
@@ -505,6 +526,7 @@ const FS = {
   doc: path => ({
     get: async () => wrapDoc(await withTimeout(getDoc(doc(fdb, path)))),
     set: data => withTimeout(setDoc(doc(fdb, path), data)),
+    merge: data => withTimeout(setDoc(doc(fdb, path), data, {merge: true})),
     update: data => withTimeout(updateDoc(doc(fdb, path), data)),
     delete: () => withTimeout(deleteDoc(doc(fdb, path))),
     onSnapshot: (next, err) => onSnapshot(doc(fdb, path), d => next(wrapDoc(d)), err)
@@ -513,10 +535,10 @@ const FS = {
 
 /* ---------- state ---------- */
 const S = {
-  products: [], videos: [], gallery: [], projects: [], news: [], performances: [], meta: {}, slides: [], slide: 0, slidePaused: false, profile: {},
+  products: [], videos: [], gallery: [], projects: [], news: [], performances: [], meta: {}, store: {}, keep: {}, lookup: null, lastOrder: null, slides: [], slide: 0, slidePaused: false, profile: {},
   myOrders: [], allOrders: [], inquiries: [],
   db: null, uid: null, authUser: null, isAdmin: false, mfaOk: false, mfaEnrolled: false, authed: false, authStep: "login", mfaResolver: null, totpSecret: null, fails: 0, lockUntil: 0, adminStarted: false, online: CONFIGURED, loaded: false, canUpload: false,
-  cart: loadCart(), drafts: {}, qty: {}, pdImg: {}, edit: null, confirmDel: null,
+  cart: loadCart(), drafts: {}, qty: {}, optSel: {}, pdImg: {}, edit: null, confirmDel: null,
   modal: null, menuOpen: false, storeCat: "전체", storeSort: "new", videoCat: "전체", newsType: "전체", pending: false, busy: false
 };
 function loadCart(){ try { return JSON.parse(localStorage.getItem("seungmu-cart") || "[]"); } catch(e){ return []; } }
@@ -561,8 +583,20 @@ function imgOr(id, seed, label){ return id ? `<img src="${blob(id)}" alt="${esc(
 
 /* ---------- products ---------- */
 const unit = p => (Number(p.salePrice) > 0 && Number(p.salePrice) < Number(p.price)) ? Number(p.salePrice) : Number(p.price) || 0;
-const tracked = p => p.stock !== null && p.stock !== undefined && p.stock !== "";
-const soldOut = p => p.status === "품절" || (tracked(p) && Number(p.stock) <= 0);
+/* options (e.g. sizes): [{name:"S", stock:3}, ...]; stock null = not tracked */
+const hasOpts = p => Array.isArray(p.options) && p.options.length > 0;
+const optLabel = p => (p.optionLabel || "사이즈");
+const findOpt = (p, name) => hasOpts(p) ? p.options.find(o => o.name === name) : null;
+const optTracked = o => o && o.stock !== null && o.stock !== undefined && o.stock !== "";
+const optSoldOut = o => optTracked(o) && Number(o.stock) <= 0;
+const tracked = p => !hasOpts(p) && p.stock !== null && p.stock !== undefined && p.stock !== "";
+const soldOut = p => p.status === "품절" || (hasOpts(p) ? p.options.every(optSoldOut) : (tracked(p) && Number(p.stock) <= 0));
+/* how many of this product (and option) can still be bought; Infinity if not tracked */
+function stockOf(p, optName){
+  if (hasOpts(p)){ const o = findOpt(p, optName); if (!o) return 0; return optTracked(o) ? Math.max(0, Number(o.stock)) : Infinity; }
+  return tracked(p) ? Math.max(0, Number(p.stock)) : Infinity;
+}
+const lineKey = l => l.pid + "|" + (l.opt || "");
 const visibleProducts = () => S.products.filter(p => p.status !== "숨김");
 const findP = id => S.products.find(p => p.id === id);
 function priceHtml(p){
@@ -571,14 +605,24 @@ function priceHtml(p){
   return won(u);
 }
 function cartLines(){ return S.cart.map(l => ({...l, p: findP(l.pid)})).filter(l => l.p && l.p.status !== "숨김"); }
+/* a cart line can't be ordered if the product/option is gone or sold out */
+const lineBad = l => soldOut(l.p) || (hasOpts(l.p) && (!findOpt(l.p, l.opt) || optSoldOut(findOpt(l.p, l.opt)))) || l.qty > stockOf(l.p, l.opt);
 const cartCount = () => S.cart.reduce((s, l) => s + l.qty, 0);
-function totals(ls){ const sub = ls.reduce((s, l) => s + unit(l.p) * l.qty, 0); const ship = sub === 0 || sub >= FREE_SHIP ? 0 : SHIP; return {sub, ship, total: sub + ship}; }
+function totals(ls){ const sub = ls.reduce((s, l) => s + unit(l.p) * l.qty, 0); const ship = shipFor(sub); return {sub, ship, total: sub + ship}; }
 function addToCart(pid, qty){
   const p = findP(pid); if (!p || soldOut(p)) return false;
-  const ex = S.cart.find(l => l.pid === pid);
-  let q = (ex ? ex.qty : 0) + qty;
-  if (tracked(p)) q = Math.min(q, Number(p.stock));
-  if (ex) ex.qty = q; else S.cart.push({pid, qty: q});
+  let opt = "";
+  if (hasOpts(p)){
+    opt = S.optSel[pid] || "";
+    const o = findOpt(p, opt);
+    if (!o){ toast(`${optLabel(p)}를 선택해 주세요`); return false; }
+    if (optSoldOut(o)){ toast("SOLD OUT 된 " + optLabel(p) + "예요"); return false; }
+  }
+  const ex = S.cart.find(l => l.pid === pid && (l.opt || "") === opt);
+  const max = stockOf(p, opt);
+  let q = Math.min((ex ? ex.qty : 0) + qty, max);
+  if (ex && q === ex.qty && max !== Infinity){ toast(`남은 수량은 ${max}개예요`); return false; }
+  if (ex) ex.qty = q; else S.cart.push(opt ? {pid, opt, qty: q} : {pid, qty: q});
   saveCart(); return true;
 }
 
@@ -638,7 +682,7 @@ function videoCard(v){
     <div class="vmeta">${fmtDate(v.date)}${v.venue ? `, ${esc(v.venue)}` : ""}${id ? "" : " (영상 링크 준비 중)"}</div></button>`;
 }
 function productCard(p){
-  return `<a class="pcard" href="#/product/${encodeURIComponent(p.id)}"><div class="pimg">${imgOr((p.images || [])[0], p.id, p.name)}${soldOut(p) ? `<span class="soldout">품절</span>` : ""}</div>
+  return `<a class="pcard" href="#/product/${encodeURIComponent(p.id)}"><div class="pimg">${imgOr((p.images || [])[0], p.id, p.name)}${soldOut(p) ? `<span class="soldout">SOLD OUT</span>` : (hasOpts(p) && p.options.some(optSoldOut) ? `<span class="soldout part">${esc(p.options.filter(optSoldOut).map(o => o.name).join(", "))} SOLD OUT</span>` : "")}</div>
   <div class="pname">${esc(p.name)}</div><div class="pprice">${priceHtml(p)}</div></a>`;
 }
 function newsRow(n){
@@ -866,6 +910,8 @@ function vProduct(id){
   const cur = Math.min(S.pdImg[id] || 0, Math.max(0, imgs.length - 1));
   const q = S.qty[id] || 1;
   const so = soldOut(p);
+  const opts = hasOpts(p), sel = opts ? findOpt(p, S.optSel[id]) : null;
+  const stockText = so ? "SOLD OUT" : opts ? (sel ? (optTracked(sel) ? (optSoldOut(sel) ? "SOLD OUT" : `${esc(sel.name)} ${Number(sel.stock)}개 남음`) : `${esc(sel.name)} 구매 가능`) : `${optLabel(p)}를 선택해 주세요`) : tracked(p) ? `${Number(p.stock)}개 남음` : "구매 가능";
   return `<div class="wrap"><div class="crumbs" style="display:flex;justify-content:space-between;align-items:center"><a href="#/store">스토어</a><a href="#/cart" class="cart-btn">장바구니 <b>${cartCount()}</b></a></div>
   <div class="pd">
     <div><div class="pd-main">${imgOr(imgs[cur], p.id, p.name)}</div>
@@ -874,8 +920,9 @@ function vProduct(id){
             <h1>${esc(p.name)}</h1>
       ${p.summary ? `<p class="muted">${esc(p.summary)}</p>` : ""}
       <div class="price-big">${priceHtml(p)}</div>
-      <dl class="kv"><dt>재고</dt><dd>${so ? "품절" : tracked(p) ? `${Number(p.stock)}개 남음` : "구매 가능"}</dd><dt>배송비</dt><dd>${won(SHIP)} (${won(FREE_SHIP)} 이상 무료)</dd><dt>결제</dt><dd>무통장 입금</dd></dl>
-      ${so ? `<button class="btn" disabled style="width:100%">품절된 상품입니다</button>` : `
+      <dl class="kv"><dt>재고</dt><dd>${stockText}</dd><dt>배송비</dt><dd>${shipText()}</dd><dt>결제</dt><dd>무통장 입금</dd></dl>
+      ${so ? `<button class="btn" disabled style="width:100%">SOLD OUT</button>` : `
+      ${opts ? `<div class="optbox"><p class="optlabel" id="opt-${esc(id)}">${esc(optLabel(p))}</p><div class="opts" role="radiogroup" aria-labelledby="opt-${esc(id)}">${p.options.map(o => `<button type="button" role="radio" aria-checked="${sel && sel.name === o.name}" class="${sel && sel.name === o.name ? "on" : ""}" data-act="optsel" data-id="${esc(id)}" data-v="${esc(o.name)}" ${optSoldOut(o) ? 'disabled aria-disabled="true"' : ""}>${esc(o.name)}${optSoldOut(o) ? "<small>SOLD OUT</small>" : (optTracked(o) && Number(o.stock) <= 3 ? `<small>${Number(o.stock)}개 남음</small>` : "")}</button>`).join("")}</div></div>` : ""}
       <div style="display:flex;justify-content:space-between;align-items:center"><span>수량</span><div class="qty"><button data-act="qty" data-id="${esc(id)}" data-d="-1" aria-label="수량 줄이기">−</button><span aria-live="polite">${q}</span><button data-act="qty" data-id="${esc(id)}" data-d="1" aria-label="수량 늘리기">+</button></div></div>
       <div class="total-line"><span>총 상품 금액</span><b>${won(unit(p) * q)}</b></div>
       <div class="pd-actions"><button class="btn ghost" data-act="addcart" data-id="${esc(id)}">장바구니 담기</button><button class="btn" data-act="buynow" data-id="${esc(id)}">바로 구매</button></div>`}
@@ -889,13 +936,13 @@ function vCart(){
   if (!ls.length) return `<div class="wrap done"><h1>장바구니가 비어 있어요</h1><p class="muted">마음에 드는 상품을 담아 보세요.</p><a class="btn" href="#/store">스토어 둘러보기</a></div>`;
   return `<div class="wrap page-head"><h1>장바구니</h1></div>
   <div class="wrap cart"><div>${ls.map(l => `<div class="cline"><div class="ci">${imgOr((l.p.images || [])[0], l.p.id, l.p.name)}</div>
-    <div><a class="cn" href="#/product/${encodeURIComponent(l.pid)}">${esc(l.p.name)}</a><div class="muted" style="font-size:.88rem">${won(unit(l.p))}</div>
-      <div style="display:flex;gap:14px;align-items:center;margin-top:8px"><div class="qty"><button data-act="cq" data-id="${esc(l.pid)}" data-d="-1" aria-label="수량 줄이기">−</button><span>${l.qty}</span><button data-act="cq" data-id="${esc(l.pid)}" data-d="1" aria-label="수량 늘리기">+</button></div><button class="linkbtn rm" data-act="crm" data-id="${esc(l.pid)}">삭제</button></div>
-      ${soldOut(l.p) ? `<div style="color:var(--kasa);font-size:.85rem;margin-top:6px">품절된 상품이에요. 삭제 후 주문해 주세요.</div>` : ""}</div>
+    <div><a class="cn" href="#/product/${encodeURIComponent(l.pid)}">${esc(l.p.name)}</a>${l.opt ? `<div class="copt">${esc(optLabel(l.p))}: ${esc(l.opt)}</div>` : ""}<div class="muted" style="font-size:.88rem">${won(unit(l.p))}</div>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:8px"><div class="qty"><button data-act="cq" data-id="${esc(lineKey(l))}" data-d="-1" aria-label="수량 줄이기">−</button><span>${l.qty}</span><button data-act="cq" data-id="${esc(lineKey(l))}" data-d="1" aria-label="수량 늘리기">+</button></div><button class="linkbtn rm" data-act="crm" data-id="${esc(lineKey(l))}">삭제</button></div>
+      ${lineBad(l) ? `<div style="color:var(--kasa);font-size:.85rem;margin-top:6px">${soldOut(l.p) || stockOf(l.p, l.opt) === 0 ? "SOLD OUT 되었어요. 삭제 후 주문해 주세요." : `남은 수량이 ${stockOf(l.p, l.opt)}개예요. 수량을 줄여 주세요.`}</div>` : ""}</div>
     <div class="cp"><b>${won(unit(l.p) * l.qty)}</b></div></div>`).join("")}</div>
   <aside class="summary"><div class="row"><span>상품 금액</span><span>${won(t.sub)}</span></div><div class="row"><span>배송비</span><span>${t.ship ? won(t.ship) : "무료"}</span></div><div class="row total"><span>결제 예정 금액</span><span>${won(t.total)}</span></div>
-    <p class="note">${t.ship ? `${won(FREE_SHIP - t.sub)} 더 담으면 무료 배송이에요.` : "무료 배송이 적용됐어요."}</p>
-    <a class="btn" href="#/checkout" ${ls.some(l => soldOut(l.p)) ? 'aria-disabled="true" style="pointer-events:none;opacity:.4"' : ""}>주문하기</a></aside></div>`;
+    <p class="note">${t.ship ? (shipCfg().over ? `${won(shipCfg().over - t.sub)} 더 담으면 무료 배송이에요.` : "") : "무료 배송이에요."}</p>
+    <a class="btn" href="#/checkout" ${ls.some(lineBad) ? 'aria-disabled="true" style="pointer-events:none;opacity:.4"' : ""}>주문하기</a></aside></div>`;
 }
 
 function vCheckout(){
@@ -906,30 +953,75 @@ function vCheckout(){
   return `<div class="wrap page-head"><h1>주문서 작성</h1></div>
   <form class="wrap cart" data-form="checkout" data-draft="checkout" novalidate><div>
     
-    <fieldset class="fieldset"><h3>주문자 정보</h3><div class="form">${f("name","이름","text",1)}${f("phone","연락처","tel",1,0,"010-0000-0000")}${f("email","이메일","email",0,1)}</div></fieldset>
+    <fieldset class="fieldset"><h3>주문자 정보</h3><div class="form">${f("name","이름","text",1)}${f("phone","휴대폰 번호 (숫자만)","tel",1,0,"01012345678")}${f("email","이메일","email",0,1)}</div></fieldset>
     <fieldset class="fieldset"><h3>배송지</h3><div class="form">${f("zip","우편번호","text",0)}<div></div>${f("address","주소","text",1,1)}${f("address2","상세 주소","text",0,1)}<div class="fld wide"><label for="co-memo">배송 메모</label><input id="co-memo" name="memo" value="${esc(d.memo || "")}" placeholder="예: 문 앞에 놓아 주세요"></div></div></fieldset>
+    <fieldset class="fieldset"><h3>주문 조회 비밀번호</h3><div class="form">
+      <div class="fld"><label for="co-opw">비밀번호 <i>*</i></label><input id="co-opw" type="password" data-keep="opw" value="${esc(S.keep.opw || "")}" autocomplete="new-password" minlength="6" maxlength="30" required></div>
+      <div class="fld"><label for="co-opw2">비밀번호 확인 <i>*</i></label><input id="co-opw2" type="password" data-keep="opw2" value="${esc(S.keep.opw2 || "")}" autocomplete="new-password" maxlength="30" required></div>
+      <p class="hint" style="grid-column:1/-1">주문 내역을 조회할 때 이름, 휴대폰 번호와 함께 사용해요. 6자 이상으로 정해 주세요. 비밀번호는 저장되지 않아 잊어버리면 찾아 드릴 수 없으니 꼭 기억해 주세요.</p></div></fieldset>
     <fieldset class="fieldset"><h3>결제 수단</h3><label class="check"><input type="radio" checked disabled> 무통장 입금</label>${S.profile.bank ? `<p class="hint" style="margin-top:8px">입금 계좌: ${esc(S.profile.bank)}</p>` : ""}<p class="hint">주문 후 3일 이내 입금이 확인되지 않으면 주문이 취소될 수 있어요.</p></fieldset>
     <label class="check"><input type="checkbox" name="agree" ${d.agree ? "checked" : ""}> 주문 내용을 확인했으며 개인정보 수집, 이용(배송 목적)에 동의합니다. <a href="#/privacy" target="_blank">내용 보기</a></label>
   </div>
-  <aside class="summary">${ls.map(l => `<div class="row"><span>${esc(l.p.name)} × ${l.qty}</span><span>${won(unit(l.p) * l.qty)}</span></div>`).join("")}
+  <aside class="summary">${ls.map(l => `<div class="row"><span>${esc(l.p.name)}${l.opt ? ` (${esc(l.opt)})` : ""} × ${l.qty}</span><span>${won(unit(l.p) * l.qty)}</span></div>`).join("")}
     <div class="row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:12px"><span>배송비</span><span>${t.ship ? won(t.ship) : "무료"}</span></div>
     <div class="row total"><span>총 결제 금액</span><span>${won(t.total)}</span></div><p class="note"></p>
     <button class="btn kasa" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "주문 보내는 중…" : `${won(t.total)} 주문하기`}</button></aside></form>`;
 }
 
 function vOrderDone(id){
-  const o = S.myOrders.find(x => x.id === id);
-  if (!o) return `<div class="wrap done"><h1>주문 내역을 불러오는 중이에요</h1><p class="muted">잠시 후에도 보이지 않으면 <a href="#/orders">주문 조회</a>에서 확인해 주세요.</p></div>`;
-  return `<div class="wrap done"><h1>주문이 접수됐어요</h1><p class="muted">주문번호 ${esc(o.id)}</p>
+  const o = S.lastOrder && S.lastOrder.no === id ? S.lastOrder : null;
+  if (!o) return `<div class="wrap done"><h1>주문 조회</h1><p class="muted">주문 내역은 주문 조회 화면에서 확인할 수 있어요.</p><a class="btn" href="#/orders">주문 조회</a></div>`;
+  return `<div class="wrap done"><h1>주문이 접수됐어요</h1>
+    <p>주문번호 <b class="ono">${esc(o.no)}</b></p>
+    <p class="hint">주문번호를 메모해 두세요. 주문 조회는 <b>이름 + 휴대폰 번호 + 비밀번호</b> 또는 <b>이름 + 주문번호 + 비밀번호</b>로 할 수 있어요.</p>
     <div class="bank"><div class="row" style="display:flex;justify-content:space-between"><span>입금하실 금액</span><b>${won(o.total)}</b></div>${S.profile.bank ? `<p style="margin:10px 0 0">입금 계좌: ${esc(S.profile.bank)}</p>` : ""}<p class="hint" style="margin-top:8px">입금이 확인되면 주문 상태가 '결제완료'로 바뀌고 순서대로 발송됩니다.</p></div>
-    <div class="btn-row" style="justify-content:center"><a class="btn" href="#/orders">주문 내역 보기</a><a class="btn ghost" href="#/store">쇼핑 계속하기</a></div></div>`;
+    <div class="btn-row" style="justify-content:center"><a class="btn" href="#/orders">주문 조회</a><a class="btn ghost" href="#/store">쇼핑 계속하기</a></div></div>`;
 }
 
 function statusCls(s){ return s === "입금대기" ? "wait" : s === "취소" ? "cancel" : ""; }
 function vOrders(){
-  return `<div class="wrap page-head"><h1>주문 조회</h1><p>이 브라우저에서 주문한 내역이에요. 다른 기기에서 주문하셨다면 주문번호와 함께 문의해 주세요.</p></div>
+  const mode = S.lookupMode === "order" ? "order" : "phone";
+  const L = S.lookup;
+  const locked = (S.lookupLock || 0) > Date.now();
+  const fields = mode === "phone"
+    ? `<div class="fld"><label for="lk-name">이름</label><input id="lk-name" data-keep="lkname" value="${esc(S.keep.lkname || "")}" autocomplete="name" required></div>
+       <div class="fld"><label for="lk-phone">휴대폰 번호 (숫자만)</label><input id="lk-phone" data-keep="lkphone" value="${esc(S.keep.lkphone || "")}" inputmode="numeric" autocomplete="tel" placeholder="01012345678" required></div>`
+    : `<div class="fld"><label for="lk-name">이름</label><input id="lk-name" data-keep="lkname" value="${esc(S.keep.lkname || "")}" autocomplete="name" required></div>
+       <div class="fld"><label for="lk-no">주문번호</label><input id="lk-no" data-keep="lkno" value="${esc(S.keep.lkno || "")}" placeholder="SM261005-ABCD" autocapitalize="characters" required></div>`;
+  const list = L && L.orders ? Object.values(L.orders).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) : [];
+  return `<div class="wrap page-head"><h1>주문 조회</h1><p>주문할 때 입력한 정보로 조회할 수 있어요. 세 가지가 모두 정확히 일치해야 해요.</p></div>
   <div class="wrap" style="padding-bottom:80px">
-  ${S.myOrders.length ? `<div class="scroll-x"><table class="otable"><thead><tr><th>주문일</th><th>주문번호</th><th>상품</th><th>금액</th><th>상태</th></tr></thead><tbody>${S.myOrders.map(o => `<tr><td>${fmtDate(o.createdAt)}</td><td>${esc(o.id)}</td><td>${o.items.map(i => `${esc(i.name)} × ${i.qty}`).join("<br>")}</td><td>${won(o.total)}</td><td><span class="status ${statusCls(o.status)}">${esc(o.status)}</span></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">주문 내역이 없어요. <a href="#/store">스토어 둘러보기</a></div>`}</div>`;
+    <div class="tabs"><button class="${mode === "phone" ? "on" : ""}" data-act="lkmode" data-v="phone">이름 + 휴대폰 번호</button><button class="${mode === "order" ? "on" : ""}" data-act="lkmode" data-v="order">이름 + 주문번호</button></div>
+    <form class="form lookup-form" data-form="lookup" novalidate>
+      ${fields}
+      <div class="fld"><label for="lk-pw">주문 조회 비밀번호</label><input id="lk-pw" type="password" data-keep="lkpw" value="${esc(S.keep.lkpw || "")}" autocomplete="off" required></div>
+      <div class="fld" style="justify-content:flex-end"><button class="btn" type="submit" ${S.busy || locked ? "disabled" : ""}>${S.busy ? "조회하는 중…" : locked ? "잠시 후 다시 시도해 주세요" : "조회하기"}</button></div>
+    </form>
+    ${L === false ? `<div class="empty" style="margin-top:24px">일치하는 주문이 없어요. 이름, ${mode === "phone" ? "휴대폰 번호" : "주문번호"}, 비밀번호를 다시 확인해 주세요.</div>` : ""}
+    ${list.length ? `<div class="scroll-x" style="margin-top:28px"><table class="otable"><thead><tr><th>주문일</th><th>주문번호</th><th>상품</th><th>금액</th><th>상태</th></tr></thead><tbody>${list.map(o => `<tr><td>${fmtDate(o.createdAt)}</td><td>${esc(o.no)}</td><td>${(o.items || []).map(i => `${esc(i.name)}${i.opt ? ` (${esc(i.opt)})` : ""} × ${i.qty}`).join("<br>")}</td><td>${won(o.total)}</td><td><span class="status ${statusCls(o.status)}">${esc(o.status)}</span></td></tr>`).join("")}</tbody></table></div>
+      ${list.some(o => o.status === "입금대기") && S.profile.bank ? `<p class="hint" style="margin-top:12px">입금 계좌: ${esc(S.profile.bank)}</p>` : ""}
+      <p class="hint" style="margin-top:12px">조회 결과는 이 화면을 벗어나면 지워져요.</p>` : ""}
+    <p class="hint" style="margin-top:28px">비밀번호를 잊으셨다면 <a href="#/contact/business">문의</a>로 주문번호와 함께 알려 주세요. 확인 후 안내해 드려요.</p>
+  </div>`;
+}
+async function doLookup(form){
+  if ((S.lookupLock || 0) > Date.now()) return;
+  const mode = S.lookupMode === "order" ? "order" : "phone";
+  const name = normName(S.keep.lkname), pw = S.keep.lkpw || "";
+  if (!name || !pw || (mode === "phone" ? !normPhone(S.keep.lkphone) : !normNo(S.keep.lkno))){ toast("세 칸을 모두 입력해 주세요"); return; }
+  if (!S.online){ toast("잠시 후 다시 시도해 주세요"); return; }
+  S.busy = true; S.lookup = null; render();
+  try {
+    const k = mode === "phone" ? await keyByPhone(S.keep.lkphone, name, pw) : await keyByOrder(name, S.keep.lkno, pw);
+    const snap = await FS.doc("lookups/" + k).get();
+    if (snap.exists){ S.lookup = snap.data(); S.lookupFails = 0; }
+    else {
+      S.lookup = false; S.lookupFails = (S.lookupFails || 0) + 1;
+      if (S.lookupFails >= 5){ S.lookupFails = 0; S.lookupLock = Date.now() + 5 * 60 * 1000; toast("5회 일치하지 않아 5분 동안 조회할 수 없어요"); setTimeout(render, 5 * 60 * 1000 + 50); }
+    }
+    S.keep.lkpw = "";
+  } catch(err){ toast(failMsg(err, "조회하지 못했어요.")); }
+  S.busy = false; render();
 }
 
 function vNews(id){
@@ -984,10 +1076,12 @@ function vContact(sub){
 const SCHEMA = {
   products: { label: "상품", fields: [
     {k:"name",l:"상품명",req:1,wide:1},
-    {k:"status",l:"판매 상태",t:"select",opts:["판매중","품절","숨김"],req:1},{k:"price",l:"정가 (원)",t:"number",req:1},{k:"salePrice",l:"할인가 (원)",t:"number",hint:"비워 두면 정가로 판매해요."},
-    {k:"stock",l:"재고 수량",t:"number",hint:"비워 두면 재고를 관리하지 않아요."},{k:"summary",l:"한 줄 소개",wide:1},
+    {k:"status",l:"판매 상태",t:"select",opts:["판매중","품절","숨김"],req:1,hint:"재고가 모두 0이 되면 자동으로 SOLD OUT 표시돼요. '품절'은 재고와 관계없이 판매를 멈출 때 써요."},{k:"price",l:"정가 (원)",t:"number",req:1},{k:"salePrice",l:"할인가 (원)",t:"number",hint:"비워 두면 정가로 판매해요."},
+    {k:"stock",l:"재고 수량",t:"number",hint:"사이즈 없는 상품용이에요. 비워 두면 재고를 관리하지 않아요. 아래에 사이즈를 넣으면 이 칸은 쓰지 않아요."},
+    {k:"optionLabel",l:"옵션 이름",hint:"예: 사이즈, 색상. 비워 두면 '사이즈'로 표시돼요."},
+    {k:"options",l:"사이즈별 재고",t:"options",wide:1,hint:"옷처럼 사이즈를 골라야 하는 상품만 추가하세요. 재고 칸을 비우면 그 사이즈는 수량 제한 없이 팔려요."},{k:"summary",l:"한 줄 소개",wide:1},
     {k:"description",l:"상세 설명",t:"textarea",wide:1,rows:8},{k:"images",l:"상품 이미지",t:"images",wide:1,hint:"첫 번째 이미지가 대표 이미지가 됩니다."}],
-    sub: x => `${won(unit(x))}${tracked(x) ? `, 재고 ${x.stock}` : ""}, ${x.status || ""}`, thumb: x => (x.images || [])[0] },
+    sub: x => `${won(unit(x))}${hasOpts(x) ? ", " + x.options.map(o => `${o.name} ${optSoldOut(o) ? "SOLD OUT" : optTracked(o) ? o.stock : "∞"}`).join(" / ") : tracked(x) ? `, 재고 ${Number(x.stock) <= 0 ? "SOLD OUT" : x.stock}` : ""}, ${x.status || ""}`, badge: x => soldOut(x) ? "SOLD OUT" : (hasOpts(x) && x.options.some(optSoldOut) ? "일부 SOLD OUT" : ""), thumb: x => (x.images || [])[0] },
   videos: { label: "영상", fields: [
     {k:"title",l:"제목",req:1,wide:1},{k:"repertoire",l:"작품 (선택)",t:"select",opts:["승무","살풀이춤","태평무","화랭이춤","검무","소고춤","창작, 협업","기타"]},{k:"category",l:"분류",t:"select",opts:["하이라이트","무대 영상","비하인드"],req:1},{k:"date",l:"공연일",t:"date"},
     {k:"url",l:"YouTube 링크",req:1,wide:1,hint:"youtube.com/watch?v=… 또는 youtu.be/… 주소를 붙여 넣으세요."},{k:"venue",l:"장소",wide:1},{k:"description",l:"설명",t:"textarea",wide:1}],
@@ -1034,6 +1128,13 @@ const DEDUCTED = ["결제완료","배송준비","배송중","배송완료"];
 function fieldHtml(f, d, key){
   const v = d[f.k] ?? "", id = `${key}-${f.k}`, req = f.req ? "required" : "";
   let inp;
+  if (f.t === "options"){
+    const rows = Array.isArray(d[f.k]) ? d[f.k] : [];
+    return `<div class="fld wide"><span class="lbl">${esc(f.l)}</span>
+      <div class="optrows">${rows.map((o, i) => `<div class="optrow"><input aria-label="${i + 1}번째 이름" placeholder="예: S, M, L, FREE" value="${esc(o.name || "")}" data-opt-i="${i}" data-opt-k="name"><input aria-label="${i + 1}번째 재고" type="number" min="0" step="1" inputmode="numeric" placeholder="재고 수량" value="${esc(o.stock ?? "")}" data-opt-i="${i}" data-opt-k="stock"><button type="button" class="btn ghost sm" data-act="opt-rm" data-i="${i}">삭제</button>${o.stock !== "" && o.stock !== null && o.stock !== undefined && Number(o.stock) <= 0 ? `<span class="so-tag">SOLD OUT</span>` : ""}</div>`).join("")}</div>
+      <div class="btn-row" style="margin-top:8px"><button type="button" class="btn ghost sm" data-act="opt-add">+ 사이즈 추가</button>${rows.length ? "" : `<button type="button" class="btn ghost sm" data-act="opt-preset">S, M, L, XL 한 번에 넣기</button>`}</div>
+      ${f.hint ? `<p class="hint">${esc(f.hint)}</p>` : ""}</div>`;
+  }
   if (f.t === "image" || f.t === "images"){
     const ids = f.t === "images" ? (d[f.k] || []) : (d[f.k] ? [d[f.k]] : []);
     inp = !S.canUpload ? `<p class="hint">이미지 업로드를 사용할 수 없어요. 관리자로 로그인해 주세요.</p>` :
@@ -1292,13 +1393,14 @@ function vAdmin(tab){
   tab = tab || "orders";
   const newOrders = S.allOrders.filter(o => o.status === "입금대기").length;
   const newInq = S.inquiries.filter(q => q.status === "새 문의").length;
-  const nav = [["orders","주문",newOrders],["products","상품"],["inquiries","문의",newInq],["slides","메인 슬라이드"],["profile","무용가 정보"],["performances","공연 기록"],["news","소식, 언론"],["videos","영상"],["gallery","갤러리"],["projects","프로젝트"],["meta","메타 태그"],["account","보안, 계정"]];
+  const nav = [["orders","주문",newOrders],["products","상품"],["store","스토어 설정"],["inquiries","문의",newInq],["slides","메인 슬라이드"],["profile","무용가 정보"],["performances","공연 기록"],["news","소식, 언론"],["videos","영상"],["gallery","갤러리"],["projects","프로젝트"],["meta","메타 태그"],["account","보안, 계정"]];
   let body;
   if (tab === "orders") body = adminOrders();
   else if (tab === "inquiries") body = adminInquiries();
   else if (tab === "profile") body = adminProfile();
   else if (tab === "account") body = adminAccount();
   else if (tab === "meta") body = adminMeta();
+  else if (tab === "store") body = adminStore();
   else if (SCHEMA[tab]) body = adminCollection(tab);
   else body = "";
   return `<div class="wrap page-head" style="display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap"><div><h1>관리자</h1><p>여기서 바꾼 내용은 저장하는 즉시 사이트에 반영돼요.</p></div><div class="btn-row"><button class="btn ghost sm" data-act="logout">로그아웃</button></div></div>
@@ -1317,11 +1419,33 @@ function adminCollection(col){
   const title = sch.title || (x => x.title || x.name);
   return `<div class="sec-head" style="margin-bottom:20px"><h2>${sch.label} <span class="muted" style="font-size:1rem">${list.length}</span></h2><button class="btn sm" data-act="new" data-col="${col}">새 ${sch.label} 등록</button></div>
   ${list.length ? `<div class="alist">${list.map(x => `<div class="arow"><div class="at">${sch.thumb ? imgOr(sch.thumb(x), x.id, "") : `<div style="display:grid;place-items:center;height:100%;color:var(--muted)">${col === "videos" ? "▶" : "글"}</div>`}</div>
-    <div><div class="an">${esc(title(x))}</div><div class="as">${esc(sch.sub(x))}</div></div>
+    <div><div class="an">${esc(title(x))}${sch.badge && sch.badge(x) ? ` <span class="so-tag">${sch.badge(x)}</span>` : ""}</div><div class="as">${esc(sch.sub(x))}</div></div>
     <div class="aa"><button class="btn ghost sm" data-act="edit" data-col="${col}" data-id="${esc(x.id)}">수정</button><button class="btn ghost sm" data-act="del" data-col="${col}" data-id="${esc(x.id)}" style="${S.confirmDel === x.id ? "color:var(--kasa);border-color:var(--kasa)" : ""}">${S.confirmDel === x.id ? "한 번 더 눌러 삭제" : "삭제"}</button></div></div>`).join("")}</div>`
   : `<div class="empty">아직 등록된 ${sch.label}이 없어요. 오른쪽 위 버튼으로 첫 ${sch.label}을 등록해 보세요.</div>`}`;
 }
 
+function adminStore(){
+  const d = draft("store", Object.assign({shipMode: "유료", shipFee: 3000, freeOver: 50000}, S.store));
+  const free = d.shipMode === "무료";
+  return `<div class="sec-head" style="margin-bottom:20px"><h2>스토어 설정</h2></div>
+  <form class="form" data-form="store-save" data-draft="store" novalidate>
+    <fieldset class="fld wide" style="border:0;padding:0;margin:0"><legend class="lbl" style="margin-bottom:8px">배송비</legend>
+      <div class="btn-row"><label class="check" style="grid-column:auto"><input type="radio" name="shipMode" value="무료" ${free ? "checked" : ""}> 무료 배송</label>
+      <label class="check" style="grid-column:auto"><input type="radio" name="shipMode" value="유료" ${free ? "" : "checked"}> 배송비 받기</label></div></fieldset>
+    ${free ? "" : `<div class="fld"><label for="st-fee">배송비 (원)</label><input id="st-fee" name="shipFee" type="number" min="0" step="100" inputmode="numeric" value="${esc(d.shipFee ?? "")}"></div>
+    <div class="fld"><label for="st-over">이 금액 이상 무료 배송 (원)</label><input id="st-over" name="freeOver" type="number" min="0" step="1000" inputmode="numeric" value="${esc(d.freeOver ?? "")}"><p class="hint">비워 두면 금액과 관계없이 항상 배송비를 받아요.</p></div>`}
+    <div class="fld wide"><p class="hint">현재 손님 화면 표시: <b>${free ? "무료" : (Number(d.shipFee) > 0 ? won(d.shipFee) + (Number(d.freeOver) > 0 ? ` (${won(d.freeOver)} 이상 무료)` : "") : "무료")}</b></p>
+    <button class="btn" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "저장하는 중…" : "저장"}</button></div></form>`;
+}
+async function saveStore(form){
+  const d = draft("store");
+  const data = {shipMode: d.shipMode === "무료" ? "무료" : "유료", shipFee: Math.max(0, Math.round(Number(d.shipFee) || 0)), freeOver: d.freeOver === "" || d.freeOver == null ? null : Math.max(0, Math.round(Number(d.freeOver) || 0)), updatedAt: Date.now()};
+  if (data.shipMode === "유료" && data.shipFee > 100000){ toast("배송비는 100,000원 이하로 입력해 주세요"); return; }
+  S.busy = true; render();
+  try { await FS.doc("site/store").set(data); toast("스토어 설정을 저장했어요"); S.drafts.store = null; }
+  catch(e){ toast(failMsg(e, "저장하지 못했어요.")); }
+  S.busy = false; render();
+}
 function adminProfile(){
   const d = draft("profile", S.profile);
   return `<div class="sec-head" style="margin-bottom:20px"><h2>사이트 정보</h2></div><p class="muted">아티스트 프로필, 연락처, 입금 계좌를 관리해요.</p>
@@ -1337,7 +1461,7 @@ function adminOrders(){
   ${list.length ? `<div class="scroll-x"><table class="otable"><thead><tr><th>주문일</th><th>주문자, 배송지</th><th>상품</th><th>금액</th><th>상태</th></tr></thead><tbody>${list.map(o => `<tr>
     <td>${fmtDate(o.createdAt)}<br><span class="muted" style="font-size:.8rem">${esc(o.id)}</span></td>
     <td><b>${esc(o.buyer.name)}</b> ${esc(o.buyer.phone)}<br><span class="muted" style="font-size:.85rem">${esc([o.buyer.zip, o.buyer.address, o.buyer.address2].filter(Boolean).join(" "))}${o.buyer.memo ? `<br>메모: ${esc(o.buyer.memo)}` : ""}${o.buyer.email ? `<br>${esc(o.buyer.email)}` : ""}</span></td>
-    <td>${(o.items || []).map(i => `${esc(i.name)} × ${i.qty}`).join("<br>")}</td><td>${won(o.total)}${(() => { const e = expectedTotal(o); return e !== null && e !== o.total ? `<br><span style="color:var(--kasa);font-size:.8rem">현재 가격 기준 ${won(e)}, 입금 금액 확인 필요</span>` : ""; })()}</td>
+    <td>${(o.items || []).map(i => `${esc(i.name)}${i.opt ? ` <b>(${esc(i.opt)})</b>` : ""} × ${i.qty}`).join("<br>")}</td><td>${won(o.total)}${(() => { const e = expectedTotal(o); return e !== null && e !== o.total ? `<br><span style="color:var(--kasa);font-size:.8rem">현재 가격 기준 ${won(e)}, 입금 금액 확인 필요</span>` : ""; })()}</td>
     <td><label><span class="sr">주문 상태</span><select data-act-change="ostatus" data-oid="${esc(o.id)}" style="padding:6px">${ORDER_STATUS.map(s => `<option ${s === o.status ? "selected" : ""}>${s}</option>`).join("")}</select></label></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">아직 들어온 주문이 없어요.</div>`}`;
 }
 
@@ -1411,6 +1535,7 @@ function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add
 
 window.addEventListener("hashchange", () => {
   const h = location.hash;
+  if (h !== lastRoute && !h.startsWith("#/orders")){ S.lookup = null; S.keep.lkpw = ""; }
   if (h !== lastRoute){ S.menuOpen = false; S.modal = null; S.confirmDel = null; if (!h.startsWith("#/admin")) S.edit = null; }
   render();
   if (h.split("/").slice(0, 2).join("/") !== lastRoute.split("/").slice(0, 2).join("/") || route()[0] === "product" || route()[0] === "news") window.scrollTo(0, 0);
@@ -1444,6 +1569,10 @@ document.addEventListener("click", async e => {
     case "menu": S.menuOpen = !S.menuOpen; render(); break;
     case "gorep": e.preventDefault(); location.hash = "#/about"; setTimeout(() => document.getElementById("rep-" + id)?.scrollIntoView(), 60); break;
     case "logout": logout(); break;
+    case "lkmode": S.lookupMode = el.dataset.v; S.lookup = null; render(); break;
+    case "opt-add": { if (!S.authed) break; const d = draft("edit"); d.options = Array.isArray(d.options) ? d.options : []; d.options.push({name: "", stock: ""}); render(); const ins = document.querySelectorAll(".optrow input[data-opt-k=name]"); if (ins.length) ins[ins.length - 1].focus(); break; }
+    case "opt-rm": { if (!S.authed) break; const d = draft("edit"); if (Array.isArray(d.options)) d.options.splice(Number(el.dataset.i), 1); render(); break; }
+    case "opt-preset": { if (!S.authed) break; const d = draft("edit"); d.options = ["S","M","L","XL"].map(n => ({name: n, stock: ""})); render(); break; }
     case "mfa-start": mfaStart(); break;
     case "verify-send": verifySend(); break;
     case "verify-check": verifyCheck(); break;
@@ -1462,11 +1591,12 @@ document.addEventListener("click", async e => {
     case "vcat": S.videoCat = el.dataset.v; render(); break;
     case "ntype": S.newsType = el.dataset.v; render(); break;
     case "pdimg": S.pdImg[id] = Number(el.dataset.i); render(); break;
-    case "qty": { const p = findP(id); let q = (S.qty[id] || 1) + Number(el.dataset.d); q = Math.max(1, tracked(p) ? Math.min(q, Number(p.stock)) : Math.min(q, 99)); S.qty[id] = q; render(); break; }
+    case "qty": { const p = findP(id); const max = hasOpts(p) && !S.optSel[id] ? 99 : stockOf(p, S.optSel[id]); let q = (S.qty[id] || 1) + Number(el.dataset.d); q = Math.max(1, Math.min(q, max === Infinity ? 99 : max)); S.qty[id] = q; render(); break; }
+    case "optsel": { S.optSel[id] = el.dataset.v; const p = findP(id); const max = stockOf(p, el.dataset.v); if (max !== Infinity && (S.qty[id] || 1) > max) S.qty[id] = Math.max(1, max); render(); break; }
     case "addcart": if (addToCart(id, S.qty[id] || 1)){ toast("장바구니에 담았어요"); render(); } break;
     case "buynow": if (addToCart(id, S.qty[id] || 1)) location.hash = "#/cart"; break;
-    case "cq": { const l = S.cart.find(x => x.pid === id); const p = findP(id); if (!l) break; l.qty = Math.max(1, l.qty + Number(el.dataset.d)); if (p && tracked(p)) l.qty = Math.min(l.qty, Math.max(1, Number(p.stock))); saveCart(); render(); break; }
-    case "crm": S.cart = S.cart.filter(x => x.pid !== id); saveCart(); render(); break;
+    case "cq": { const l = S.cart.find(x => lineKey(x) === id); if (!l) break; const p = findP(l.pid); l.qty = Math.max(1, l.qty + Number(el.dataset.d)); if (p){ const max = stockOf(p, l.opt); if (max !== Infinity) l.qty = Math.min(l.qty, Math.max(1, max)); } saveCart(); render(); break; }
+    case "crm": S.cart = S.cart.filter(x => lineKey(x) !== id); saveCart(); render(); break;
     case "new": S.edit = {col: el.dataset.col, id: null}; S.drafts.edit = el.dataset.col === "products" ? {status: "판매중", images: []} : {}; render(); window.scrollTo(0, 0); break;
     case "edit": { const x = S[el.dataset.col].find(y => y.id === id); S.edit = {col: el.dataset.col, id}; const dd = clone(x); delete dd.id; S.drafts.edit = dd; render(); window.scrollTo(0, 0); break; }
     case "cancel-edit": S.edit = null; S.drafts.edit = null; render(); break;
@@ -1483,6 +1613,12 @@ document.addEventListener("keydown", e => {
   if (S.modal && S.modal.type === "img" && (e.key === "ArrowRight" || e.key === "ArrowLeft")){ const n = S.gallery.length; S.modal.i = (S.modal.i + (e.key === "ArrowRight" ? 1 : -1) + n) % n; render(); }
 });
 function bindDraft(e){
+  if (e.target.dataset && e.target.dataset.keep){ S.keep[e.target.dataset.keep] = e.target.value; return; }
+  if (e.target.dataset && e.target.dataset.optI !== undefined){
+    const d = draft("edit"); d.options = Array.isArray(d.options) ? d.options : [];
+    const row = d.options[Number(e.target.dataset.optI)]; if (row) row[e.target.dataset.optK] = e.target.value;
+    return;
+  }
   const f = e.target.closest("[data-draft]"); const name = e.target.name;
   if (!f || !name || e.target.type === "password") return;
   const d = draft(f.dataset.draft);
@@ -1493,6 +1629,7 @@ document.addEventListener("change", async e => {
   bindDraft(e);
   const t = e.target;
   if (t.dataset.actChange === "ssort"){ S.storeSort = t.value; render(); }
+  else if (t.name === "shipMode" && t.closest("[data-draft=store]")) render();
   else if (["ostatus","qstatus"].includes(t.dataset.actChange) && !S.authed) return;
   else if (t.dataset.actChange === "ostatus") await setOrderStatus(t.dataset.oid, t.value);
   else if (t.dataset.actChange === "qstatus") await setInqStatus(t.dataset.qid, t.value);
@@ -1508,6 +1645,8 @@ document.addEventListener("submit", async e => {
   else if (kind === "admin-save") saveItem(f.dataset.col, f);
   else if (kind === "profile-save") saveProfile(f);
   else if (kind === "meta-save"){ if (S.authed) saveMeta(f); }
+  else if (kind === "lookup") doLookup(f);
+  else if (kind === "store-save"){ if (S.authed) saveStore(f); }
   else if (kind === "admin-login") adminLogin(f);
   else if (kind === "mfa-signin") mfaSignin(f);
   else if (kind === "mfa-enroll") mfaEnroll(f);
@@ -1519,27 +1658,61 @@ function firstInvalid(form, extra){
   return false;
 }
 
+/* ---------- order lookup keys ----------
+   Customers look orders up with (phone + name + password) or (name + order no + password).
+   Each combination is stretched with PBKDF2 into a document id under /lookups.
+   The rules allow reading a lookup doc only by its exact id (no listing), so knowing
+   all three values is the only way in. The password itself is never stored. */
+const LOOKUP_SALT = "gaoneway-order-lookup-v1", LOOKUP_ITER = 150000;
+const hex = buf => Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, "0")).join("");
+async function lookupKey(str){
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(str), "PBKDF2", false, ["deriveBits"]);
+  return hex(await crypto.subtle.deriveBits({name: "PBKDF2", salt: enc.encode(LOOKUP_SALT), iterations: LOOKUP_ITER, hash: "SHA-256"}, key, 256));
+}
+const normName = v => String(v || "").trim();
+const normPhone = v => String(v || "").replace(/\D/g, "");
+const normNo = v => String(v || "").trim().toUpperCase();
+const keyByPhone = (phone, name, pw) => lookupKey(`P|${normPhone(phone)}|${normName(name)}|${pw}`);
+const keyByOrder = (name, no, pw) => lookupKey(`O|${normName(name)}|${normNo(no)}|${pw}`);
+function orderSummary(no, o){
+  return {no, createdAt: o.createdAt, items: o.items.map(i => ({name: i.name, opt: i.opt || "", qty: i.qty, price: i.price})), subtotal: o.subtotal, shipping: o.shipping, total: o.total, status: o.status};
+}
+
 /* ---------- actions ---------- */
 async function placeOrder(form){
-  if (firstInvalid(form, () => { if (!draft("checkout").agree){ toast("주문 내용 확인과 개인정보 동의에 체크해 주세요"); return true; } })) return;
+  if (firstInvalid(form, () => {
+    const d = draft("checkout"), phone = normPhone(d.phone), pw = S.keep.opw || "";
+    if (!/^01\d{8,9}$/.test(phone)){ toast("휴대폰 번호를 숫자만 정확히 입력해 주세요 (예: 01012345678)"); return true; }
+    if (pw.length < 6){ toast("주문 조회 비밀번호를 6자 이상 입력해 주세요"); return true; }
+    if (pw !== (S.keep.opw2 || "")){ toast("주문 조회 비밀번호 확인이 일치하지 않아요"); return true; }
+    if (!d.agree){ toast("주문 내용 확인과 개인정보 동의에 체크해 주세요"); return true; }
+  })) return;
   if (!S.online || !S.uid){ toast("잠시 후 다시 시도해 주세요. 연결을 준비하고 있어요."); return; }
   const ls = cartLines();
-  for (const l of ls){ if (soldOut(l.p) || (tracked(l.p) && l.qty > Number(l.p.stock))){ toast(`'${l.p.name}' 재고가 부족해요. 장바구니를 확인해 주세요.`); return; } }
-  const d = draft("checkout"), t = totals(ls);
+  for (const l of ls){ if (lineBad(l)){ toast(`'${l.p.name}${l.opt ? " " + l.opt : ""}' 재고가 부족해요. 장바구니를 확인해 주세요.`); return; } }
+  const d = draft("checkout"), t = totals(ls), pw = S.keep.opw;
   const now = new Date();
   const no = "SM" + now.getFullYear().toString().slice(2) + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0") + "-" + Array.from(crypto.getRandomValues(new Uint8Array(4)), b => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 32]).join("");
   const cut = (v, n) => String(v || "").slice(0, n);
-  const order = {
-    uid: S.uid,
-    items: ls.map(l => ({pid: l.pid, name: cut(l.p.name, 100), price: unit(l.p), qty: l.qty})),
-    subtotal: t.sub, shipping: t.ship, total: t.total,
-    buyer: {name: cut(d.name, 50), phone: cut(d.phone, 30), email: cut(d.email, 100), zip: cut(d.zip, 10), address: cut(d.address, 200), address2: cut(d.address2, 200), memo: cut(d.memo, 300)},
-    pay: "무통장입금", status: "입금대기", stockDeducted: false, createdAt: Date.now()
-  };
+  const name = cut(normName(d.name), 50), phone = normPhone(d.phone);
   S.busy = true; render();
   try {
-    await FS.doc("orders/" + no).set(order);
-    S.cart = []; saveCart(); S.drafts.checkout = null;
+    const [k1, k2] = await Promise.all([keyByPhone(phone, name, pw), keyByOrder(name, no, pw)]);
+    const order = {
+      uid: S.uid, lookupKeys: [k1, k2],
+      items: ls.map(l => { const it = {pid: l.pid, name: cut(l.p.name, 100), price: unit(l.p), qty: l.qty}; if (l.opt) it.opt = cut(l.opt, 40); return it; }),
+      subtotal: t.sub, shipping: t.ship, total: t.total,
+      buyer: {name, phone, email: cut(d.email, 100), zip: cut(d.zip, 10), address: cut(d.address, 200), address2: cut(d.address2, 200), memo: cut(d.memo, 300)},
+      pay: "무통장입금", status: "입금대기", stockDeducted: false, createdAt: Date.now()
+    };
+    const sum = orderSummary(no, order);
+    const b = writeBatch(fdb);
+    b.set(doc(fdb, "orders/" + no), order);
+    b.set(doc(fdb, "lookups/" + k1), {orders: {[no]: sum}, updatedAt: Date.now()}, {merge: true});
+    b.set(doc(fdb, "lookups/" + k2), {orders: {[no]: sum}, updatedAt: Date.now()});
+    await withTimeout(b.commit());
+    S.lastOrder = sum; S.cart = []; saveCart(); S.drafts.checkout = null; S.keep = {};
     S.busy = false; location.hash = "#/order/" + no;
   } catch(err){ S.busy = false; render(); toast(failMsg(err, "주문을 보내지 못했어요.")); }
 }
@@ -1607,6 +1780,16 @@ async function saveItem(col, form){
     let v = d[f.k];
     if (f.t === "number") v = (v === "" || v == null) ? null : Math.max(0, Math.round(Number(v)));
     else if (f.t === "images") v = Array.isArray(v) ? v : [];
+    else if (f.t === "options"){
+      const seen = new Set(); v = [];
+      for (const o of (Array.isArray(d[f.k]) ? d[f.k] : [])){
+        const name = String(o.name || "").trim().slice(0, 40); if (!name) continue;
+        if (seen.has(name)){ toast(`'${name}'이(가) 두 번 들어 있어요`); return; } seen.add(name);
+        const st = o.stock === "" || o.stock == null ? null : Math.max(0, Math.round(Number(o.stock)));
+        if (st !== null && isNaN(st)){ toast(`'${name}'의 재고를 숫자로 적어 주세요`); return; }
+        v.push({name, stock: st});
+      }
+    }
     else v = v == null ? "" : String(v).trim();
     data[f.k] = v;
   }
@@ -1638,10 +1821,20 @@ async function setOrderStatus(oid, status){
     if (DEDUCTED.includes(status) && !stockDeducted){ delta = -1; stockDeducted = true; }
     else if (!DEDUCTED.includes(status) && stockDeducted){ delta = 1; stockDeducted = false; }
     await FS.doc("orders/" + oid).update({status, stockDeducted, updatedAt: Date.now()});
+    for (const k of (o.lookupKeys || [])){ try { await FS.doc("lookups/" + k).update({["orders." + oid + ".status"]: status, updatedAt: Date.now()}); } catch(e){ console.warn("lookup sync", e && e.code); } }
     if (delta){
-      for (const it of o.items || []){
-        const p = findP(it.pid);
-        if (p && tracked(p)) await FS.doc("products/" + p.id).update({stock: Math.max(0, Number(p.stock) + delta * it.qty)});
+      const byP = {};
+      for (const it of o.items || []) (byP[it.pid] = byP[it.pid] || []).push(it);
+      for (const [pid, its] of Object.entries(byP)){
+        const p = findP(pid); if (!p) continue;
+        if (hasOpts(p)){
+          const options = clone(p.options); let changed = false;
+          for (const it of its){ const op = options.find(x => x.name === it.opt); if (op && optTracked(op)){ op.stock = Math.max(0, Number(op.stock) + delta * it.qty); changed = true; } }
+          if (changed) await FS.doc("products/" + pid).update({options});
+        } else if (tracked(p)){
+          const n = its.reduce((a, it) => a + it.qty, 0);
+          await FS.doc("products/" + pid).update({stock: Math.max(0, Number(p.stock) + delta * n)});
+        }
       }
     }
     toast(`주문 상태를 '${status}'(으)로 바꿨어요${delta < 0 ? ", 재고 차감" : delta > 0 ? ", 재고 복구" : ""}`);
@@ -1655,7 +1848,7 @@ async function setInqStatus(qid, status){
 function expectedTotal(o){
   let sub = 0;
   for (const it of o.items || []){ const p = findP(it.pid); if (!p) return null; sub += unit(p) * (Number(it.qty) || 0); }
-  return sub + (sub === 0 || sub >= FREE_SHIP ? 0 : SHIP);
+  return sub + shipFor(sub);
 }
 
 /* ---------- data ---------- */
@@ -1681,6 +1874,7 @@ async function boot(){
   let pFirst = true;
   live((n, e) => FS.doc("site/profile").onSnapshot(n, e), s => { S.profile = s.exists ? s.data() : {}; if (pFirst){ pFirst = false; done(); } applyMeta(); softRender(); }, "profile");
   live((n, e) => FS.doc("site/meta").onSnapshot(n, e), s => { S.meta = s.exists ? s.data() : {}; applyMeta(); }, "meta");
+  live((n, e) => FS.doc("site/store").onSnapshot(n, e), s => { S.store = s.exists ? s.data() : {}; softRender(); }, "store");
   let myUnsub = null;
   onAuthStateChanged(fauth, async u => {
     S.authUser = u; S.uid = u ? u.uid : null;
@@ -1688,8 +1882,6 @@ async function boot(){
     S.mfaEnrolled = !!u && !u.isAnonymous && multiFactor(u).enrolledFactors.length > 0;
     S.mfaOk = false;
     if (S.isAdmin){ try { const tok = await u.getIdTokenResult(); S.mfaOk = !!(tok.claims.firebase && tok.claims.firebase.sign_in_second_factor); } catch(e){} }
-    if (myUnsub){ myUnsub(); myUnsub = null; } S.myOrders = [];
-    if (u) myUnsub = live((n, e) => FS.where("orders", "uid", u.uid).onSnapshot(n, e), snap => { S.myOrders = snap.docs.map(d => ({...d.data(), id: d.id})).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); softRender(); }, "myOrders");
     const ok = S.isAdmin && (!REQUIRE_MFA || S.mfaOk);
     if (ok && !S.authed){ S.authed = true; startAdmin(); }
     else if (!ok && S.authed) stopAdmin();
