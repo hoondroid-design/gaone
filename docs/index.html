@@ -668,21 +668,46 @@ function cartLines(){ return S.cart.map(l => ({...l, p: findP(l.pid)})).filter(l
 const lineBad = l => soldOut(l.p) || (hasOpts(l.p) && (!findOpt(l.p, l.opt) || optSoldOut(findOpt(l.p, l.opt)))) || l.qty > stockOf(l.p, l.opt);
 const cartCount = () => S.cart.reduce((s, l) => s + l.qty, 0);
 function totals(ls){ const sub = ls.reduce((s, l) => s + unit(l.p) * l.qty, 0); const ship = shipFor(sub); return {sub, ship, total: sub + ship}; }
-function addToCart(pid, qty){
-  const p = findP(pid); if (!p || soldOut(p)) return false;
+/* the product page quantity belongs to one product + one size */
+const qtyKey = pid => pid + "|" + (S.optSel[pid] || "");
+const selQty = pid => S.qty[qtyKey(pid)] || 1;
+/* validates the current selection; returns {p, opt, max} or null (and tells the customer why) */
+function pickSelection(pid){
+  const p = findP(pid); if (!p || soldOut(p)){ toast("SOLD OUT 된 상품이에요"); return null; }
   let opt = "";
   if (hasOpts(p)){
     opt = S.optSel[pid] || "";
     const o = findOpt(p, opt);
-    if (!o){ toast(`${optLabel(p)}를 선택해 주세요`); return false; }
-    if (optSoldOut(o)){ toast("SOLD OUT 된 " + optLabel(p) + "예요"); return false; }
+    if (!o){ toast(`${optLabel(p)}를 선택해 주세요`); return null; }
+    if (optSoldOut(o)){ toast("SOLD OUT 된 " + optLabel(p) + "예요"); return null; }
   }
+  return {p, opt, max: stockOf(p, opt)};
+}
+function addToCart(pid, qty){
+  const sel = pickSelection(pid); if (!sel) return false;
+  const {opt, max} = sel, label = opt ? `${opt} ` : "";
   const ex = S.cart.find(l => l.pid === pid && (l.opt || "") === opt);
-  const max = stockOf(p, opt);
-  let q = Math.min((ex ? ex.qty : 0) + qty, max);
-  if (ex && q === ex.qty && max !== Infinity){ toast(`남은 수량은 ${max}개예요`); return false; }
+  const before = ex ? ex.qty : 0;
+  const q = Math.min(before + qty, max);
+  if (q <= before){ toast(`남은 재고가 ${max}개라 더 담을 수 없어요 (장바구니에 ${before}개)`); return false; }
   if (ex) ex.qty = q; else S.cart.push(opt ? {pid, opt, qty: q} : {pid, qty: q});
-  saveCart(); return true;
+  saveCart();
+  if (q < before + qty) toast(`남은 재고가 ${max}개라 ${label}${q}개까지만 담았어요`);
+  else if (before) toast(`장바구니에 같은 상품이 있어 ${label}${q}개로 합쳤어요`);
+  else toast(`장바구니에 ${label}${q}개를 담았어요`);
+  return true;
+}
+/* 바로 구매: 장바구니와 상관없이 고른 상품, 사이즈, 수량 그대로 주문서로 */
+function buyNow(pid, qty){
+  const sel = pickSelection(pid); if (!sel) return false;
+  if (qty > sel.max){ toast(`남은 재고가 ${sel.max}개예요. 수량을 줄여 주세요`); return false; }
+  S.buyNow = sel.opt ? {pid, opt: sel.opt, qty} : {pid, qty};
+  return true;
+}
+const isBuyNow = () => route()[0] === "checkout" && route()[1] === "now" && !!S.buyNow;
+function checkoutLines(){
+  if (isBuyNow()){ const p = findP(S.buyNow.pid); return p && p.status !== "숨김" ? [{...S.buyNow, p}] : []; }
+  return cartLines();
 }
 
 /* ---------- routing ---------- */
@@ -967,7 +992,7 @@ function vProduct(id){
   if (!p || p.status === "숨김") return `<div class="wrap done"><h1>상품을 찾을 수 없어요</h1><p class="muted">판매가 끝났거나 주소가 바뀌었을 수 있어요.</p><a class="btn" href="#/store">스토어로 돌아가기</a></div>`;
   const imgs = p.images || [];
   const cur = Math.min(S.pdImg[id] || 0, Math.max(0, imgs.length - 1));
-  const q = S.qty[id] || 1;
+  const q = selQty(id);
   const so = soldOut(p);
   const opts = hasOpts(p), sel = opts ? findOpt(p, S.optSel[id]) : null;
   const stockText = so ? "SOLD OUT" : opts ? (sel ? (optTracked(sel) ? (optSoldOut(sel) ? "SOLD OUT" : `${esc(sel.name)} ${Number(sel.stock)}개 남음`) : `${esc(sel.name)} 구매 가능`) : `${optLabel(p)}를 선택해 주세요`) : tracked(p) ? `${Number(p.stock)}개 남음` : "구매 가능";
@@ -1007,11 +1032,11 @@ function vCart(){
 }
 
 function vCheckout(){
-  const ls = cartLines(), t = totals(ls);
+  const ls = checkoutLines(), t = totals(ls);
   if (!ls.length) return vCart();
   const d = draft("checkout");
   const f = (k, l, type, req, wide, ph) => `<div class="fld ${wide ? "wide" : ""}"><label for="co-${k}">${l}${req ? " <i>*</i>" : ""}</label><input id="co-${k}" name="${k}" type="${type}" value="${esc(d[k] || "")}" ${req ? "required" : ""} ${ph ? `placeholder="${esc(ph)}"` : ""}></div>`;
-  return `<div class="wrap page-head"><h1>주문서 작성</h1></div>
+  return `<div class="wrap page-head"><h1>주문서 작성</h1>${isBuyNow() ? `<p>바로 구매 주문이에요. 장바구니에 담긴 다른 상품은 그대로 남아 있어요.</p>` : ""}</div>
   <form class="wrap cart" data-form="checkout" data-draft="checkout" novalidate><div>
     
     <fieldset class="fieldset"><h3>주문자 정보</h3><div class="form">${f("name","이름","text",1)}${f("phone","휴대폰 번호 (숫자만)","tel",1,0,"01012345678")}${f("email","이메일","email",0,1)}</div></fieldset>
@@ -1869,6 +1894,7 @@ function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add
 
 window.addEventListener("hashchange", () => {
   const h = location.hash;
+  if (h !== lastRoute && !h.startsWith("#/checkout/now")) S.buyNow = null;
   if (h !== lastRoute && !h.startsWith("#/orders")){ S.lookup = null; S.lookupStatus = {}; S.lookupKeyUsed = null; S.keep.lkpw = ""; }
   if (h !== lastRoute){ S.menuOpen = false; S.modal = null; S.confirmDel = null; if (!h.startsWith("#/admin")) S.edit = null; }
   render();
@@ -1941,10 +1967,17 @@ document.addEventListener("click", async e => {
     case "vcat": S.videoCat = el.dataset.v; render(); break;
     case "ntype": S.newsType = el.dataset.v; render(); break;
     case "pdimg": S.pdImg[id] = Number(el.dataset.i); render(); break;
-    case "qty": { const p = findP(id); const max = hasOpts(p) && !S.optSel[id] ? 99 : stockOf(p, S.optSel[id]); let q = (S.qty[id] || 1) + Number(el.dataset.d); q = Math.max(1, Math.min(q, max === Infinity ? 99 : max)); S.qty[id] = q; render(); break; }
-    case "optsel": { S.optSel[id] = el.dataset.v; const p = findP(id); const max = stockOf(p, el.dataset.v); if (max !== Infinity && (S.qty[id] || 1) > max) S.qty[id] = Math.max(1, max); render(); break; }
-    case "addcart": if (addToCart(id, S.qty[id] || 1)){ toast("장바구니에 담았어요"); render(); } break;
-    case "buynow": if (addToCart(id, S.qty[id] || 1)) location.hash = "#/cart"; break;
+    case "qty": {
+      const p = findP(id);
+      if (hasOpts(p) && !S.optSel[id]){ toast(`${optLabel(p)}를 먼저 선택해 주세요`); break; }
+      const max = stockOf(p, S.optSel[id]), lim = max === Infinity ? 99 : max;
+      let q = selQty(id) + Number(el.dataset.d);
+      if (q > lim){ toast(`남은 재고는 ${lim}개예요`); q = lim; }
+      S.qty[qtyKey(id)] = Math.max(1, q); render(); break;
+    }
+    case "optsel": { S.optSel[id] = el.dataset.v; const p = findP(id); const max = stockOf(p, el.dataset.v); const k = qtyKey(id); if (max !== Infinity && (S.qty[k] || 1) > max) S.qty[k] = Math.max(1, max); render(); break; }
+    case "addcart": { const k = qtyKey(id); if (addToCart(id, selQty(id))){ delete S.qty[k]; render(); } break; }
+    case "buynow": { const k = qtyKey(id); if (buyNow(id, selQty(id))){ delete S.qty[k]; location.hash = "#/checkout/now"; } break; }
     case "cq": { const l = S.cart.find(x => lineKey(x) === id); if (!l) break; const p = findP(l.pid); l.qty = Math.max(1, l.qty + Number(el.dataset.d)); if (p){ const max = stockOf(p, l.opt); if (max !== Infinity) l.qty = Math.min(l.qty, Math.max(1, max)); } saveCart(); render(); break; }
     case "crm": S.cart = S.cart.filter(x => lineKey(x) !== id); saveCart(); render(); break;
     case "new": S.edit = {col: el.dataset.col, id: null}; S.drafts.edit = el.dataset.col === "products" ? {status: "판매중", images: []} : {}; render(); window.scrollTo(0, 0); break;
@@ -2048,13 +2081,13 @@ async function placeOrder(form){
     if (!/^01\d{8,9}$/.test(phone)){ toast("휴대폰 번호를 숫자만 정확히 입력해 주세요 (예: 01012345678)"); return true; }
     if (pw.length < 6){ toast("주문 조회 비밀번호를 6자 이상 입력해 주세요"); return true; }
     if (pw !== (S.keep.opw2 || "")){ toast("주문 조회 비밀번호 확인이 일치하지 않아요"); return true; }
-    const tpv = [...new Map(cartLines().map(l => [l.pid, l.p])).values()].filter(x => String(x.terms || "").trim());
+    const tpv = [...new Map(checkoutLines().map(l => [l.pid, l.p])).values()].filter(x => String(x.terms || "").trim());
     const miss = tpv.find(x => !d["terms_" + x.id]);
     if (miss){ toast(`[필수] ${miss.termsTitle || "구매 약관"} (${miss.name})에 동의해 주세요`); return true; }
     if (!d.agree){ toast("[필수] 주문 내용 확인과 개인정보 동의에 체크해 주세요"); return true; }
   })) return;
   if (!S.online || !S.uid){ toast("잠시 후 다시 시도해 주세요. 연결을 준비하고 있어요."); return; }
-  const ls = cartLines();
+  const ls = checkoutLines(), fromBuyNow = isBuyNow();
   for (const l of ls){ if (lineBad(l)){ toast(`'${l.p.name}${l.opt ? " " + l.opt : ""}' 재고가 부족해요. 장바구니를 확인해 주세요.`); return; } }
   const d = draft("checkout"), t = totals(ls), pw = S.keep.opw;
   const now = new Date();
@@ -2087,7 +2120,8 @@ async function placeOrder(form){
     b.set(doc(fdb, "lookups/" + k1), {orders: {[no]: sum}, updatedAt: Date.now()}, {merge: true});
     b.set(doc(fdb, "lookups/" + k2), {orders: {[no]: sum}, updatedAt: Date.now()});
     await withTimeout(b.commit());
-    S.lastOrder = sum; S.cart = []; saveCart(); S.drafts.checkout = null; S.keep = {};
+    S.lastOrder = sum; S.drafts.checkout = null; S.keep = {};
+    if (fromBuyNow) S.buyNow = null; else { S.cart = []; saveCart(); }
     S.busy = false; location.hash = "#/order/" + no;
   } catch(err){ S.busy = false; render(); toast(failMsg(err, "주문을 보내지 못했어요.")); }
 }
