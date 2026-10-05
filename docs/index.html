@@ -881,7 +881,7 @@ let lastRoute = "";
 function vHeader(){
   const r = route()[0];
   const shop = ["store","product","cart","checkout","order","orders"];
-  const items = [["","Home","메인페이지"],["about","About","레퍼토리"],["artist","Artist","아티스트"],["portfolio","Portfolio","포트폴리오"],["news","News","주요소식"],["store","Store","스토어"],["contact","Contact","문의"]];
+  const items = [["","Home","메인페이지"],["about","About","레퍼토리"],["artist","Artist","아티스트"],["portfolio","Archive","아카이브"],["news","News","주요소식"],["store","Store","스토어"],["contact","Contact","문의"]];
   return `<div class="wrap hdr-in">
     <a class="brand" href="#/"><span>${esc(S.profile.siteTitle || S.profile.name || "무용가")}</span></a>
     <nav class="nav ${S.menuOpen ? "open" : ""}" aria-label="주 메뉴">${items.map(([k, en, ko]) => `<a href="#/${k}" class="${r === k || (k === "store" && shop.includes(r)) || (k === "news" && r === "schedule") ? "on" : ""}" ${r === k ? 'aria-current="page"' : ""}><span>${en}</span><small>${ko}</small></a>`).join("")}</nav>
@@ -1250,17 +1250,17 @@ function vArtist(){
 
 function vPortfolio(sub){
   sub = sub || "video";
-  const tabs = [["video","Video"],["gallery","Gallery"],["projects","Projects &amp; Collaborations"]];
+  if (sub === "projects") sub = "video";
+  const tabs = [["video","Video"],["gallery","Gallery"]];
   let body = "";
   if (sub === "video"){
     const list = S.videos;
     body = `${loading()}${list.length ? `<div class="grid g3">${list.map(videoCard).join("")}</div>` : (S.loaded ? `<div class="empty">이 분류에는 아직 영상이 없어요.</div>` : "")}`;
   } else if (sub === "gallery"){
     body = S.gallery.length ? `<div class="masonry">${S.gallery.map((g, i) => `<button data-act="img" data-i="${i}"><img src="${blob(g.image)}" alt="${esc(g.caption || "공연 사진")}" loading="lazy"><div class="cap">${esc(g.caption || "")}</div></button>`).join("")}</div>` : (S.loaded ? `<div class="empty">아직 사진이 없어요.${S.isAdmin ? ` <a href="#/admin/gallery">관리자 화면에서 올리기</a>` : ""}</div>` : loading());
-  } else {
-    body = S.projects.length ? `<div>${S.projects.map(pr => `<article class="proj"><div class="yr">${esc(pr.year || "")}</div><div><span class="genre">${esc(pr.genre || "")}</span><h3>${esc(pr.title)}</h3>${pr.partners ? `<p class="muted" style="font-size:.9rem">함께한 이: ${esc(pr.partners)}</p>` : ""}<div class="prose">${paras(pr.description)}</div>${pr.link ? `<a href="${esc(pr.link)}" target="_blank" rel="noopener">자세히 보기</a>` : ""}</div><div>${pr.image ? `<div class="pimg"><img src="${blob(pr.image)}" alt="${esc(pr.title)}" loading="lazy"></div>` : ""}</div></article>`).join("")}</div>` : (S.loaded ? `<div class="empty">등록된 프로젝트가 없어요.</div>` : loading());
+
   }
-  return `<div class="wrap page-head"><h1>Portfolio</h1><p>무대의 기록, 그리고 전통춤을 바탕으로 한 창작과 다른 장르와의 협업.</p></div>
+  return `<div class="wrap page-head"><h1>Archive</h1><p>주요 공연의 하이라이트와 무대 사진</p></div>
   <div class="wrap" style="padding-bottom:80px"><div class="tabs">${tabs.map(([k, l]) => `<a href="#/portfolio/${k}" class="${sub === k ? "on" : ""}">${l}</a>`).join("")}</div>${body}</div>`;
 }
 
@@ -1839,7 +1839,7 @@ function adminAccount(){
   <dl class="kv" style="margin-top:20px"><dt>계정</dt><dd>${esc(u && u.email || "")}</dd><dt>2단계 인증</dt><dd>${S.mfaEnrolled ? "사용 중 (인증 앱)" : "사용 안 함"}</dd><dt>UID</dt><dd style="word-break:break-all">${esc(u && u.uid || "")}</dd></dl>
   <div class="btn-row"><button class="btn ghost sm" data-act="pw-reset-me">비밀번호 재설정 메일 받기</button></div>
   <div class="fieldset" style="margin-top:28px"><h3>견본 데이터</h3>
-  <p class="muted" style="font-size:.92rem">처음 시작할 때 Claude에서 만들던 견본(프로필, 공연 레퍼런스, 상품, 영상, 프로젝트, 메타 태그)을 한 번에 불러와요. 이미 입력한 같은 항목은 덮어써요.</p>
+  <p class="muted" style="font-size:.92rem">처음 시작할 때 Claude에서 만들던 견본(프로필, 공연 레퍼런스, 상품, 영상, 메타 태그)을 한 번에 불러와요. 이미 입력한 같은 항목은 덮어써요.</p>
   <button class="btn ghost sm" data-act="seed" style="${S.confirmSeed ? "color:var(--kasa);border-color:var(--kasa)" : ""}" ${S.busy ? "disabled" : ""}>${S.confirmSeed ? "한 번 더 누르면 불러와요" : "견본 데이터 불러오기"}</button></div>
   <div class="fieldset" style="margin-top:28px"><h3>최근 관리자 접속, 열람 기록</h3>
   ${log.length ? `<div class="scroll-x"><table class="otable"><thead><tr><th>일시</th><th>내용</th><th>계정</th><th>브라우저</th></tr></thead><tbody>${log.map(l => `<tr><td>${fmtDT(l.t)}</td><td>${esc(l.action || "관리자 로그인")}</td><td>${esc(l.email || "")}</td><td class="muted" style="font-size:.8rem">${esc(l.ua)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">기록이 없어요.</p>`}
@@ -1894,7 +1894,7 @@ function adminGroups(){
     {g: "Home", ko: "메인페이지", items: [["hero", "첫 화면 문구"], ["slides", "메인 슬라이드"], ["popups", "팝업"]]},
     {g: "About", ko: "레퍼토리", items: [["repertoire", "레퍼토리 설명"]]},
     {g: "Artist", ko: "아티스트", items: [["artistProfile", "프로필 · 이력 · 수상"], ["performances", "공연 레퍼런스"]]},
-    {g: "Portfolio", ko: "포트폴리오", items: [["videos", "영상"], ["gallery", "갤러리"], ["projects", "프로젝트"]]},
+    {g: "Archive", ko: "아카이브", items: [["videos", "영상"], ["gallery", "갤러리"]]},
     {g: "News", ko: "주요소식", items: [["schedules", "공연일정"], ["news", "언론보도"]]},
     {g: "Store", ko: "스토어", items: [["orders", "주문", newOrders], ["products", "상품 · 재고"], ["store", "배송비 · 입금 계좌"], ["marketing", "마케팅DB"]]},
     {g: "Contact", ko: "문의", items: [["inquiries", "받은 문의", newInq]]},
@@ -1910,7 +1910,7 @@ function adminGuide(){
     ["Home 메인페이지", "맨 위 큰 문구, 사진 슬라이드, 팝업", `${L("hero", "첫 화면 문구")} · ${L("slides", "메인 슬라이드")} · ${L("popups", "팝업")}`],
     ["About 레퍼토리", "여섯 가지 춤 소개 카드 아래 '나의 ○○' 설명", L("repertoire", "레퍼토리 설명")],
     ["Artist 아티스트", "프로필 사진, 이력, 수상, 지도 경력, 공연 레퍼런스", `${L("artistProfile", "프로필 · 이력 · 수상")} · ${L("performances", "공연 레퍼런스")}`],
-    ["Portfolio 포트폴리오", "공연 영상, 사진, 협업 프로젝트", `${L("videos", "영상")} · ${L("gallery", "갤러리")} · ${L("projects", "프로젝트")}`],
+    ["Archive 아카이브", "공연 영상, 무대 사진 (메인페이지 '아카이브'에도 표시)", `${L("videos", "영상")} · ${L("gallery", "갤러리")}`],
     ["News 주요소식", "공연일정(메인페이지에도 표시), 언론보도(메인페이지 '뉴스'에도 표시)", `${L("schedules", "공연일정")} · ${L("news", "언론보도")}`],
     ["Store 스토어", "상품, 사이즈별 재고, 배송비, 입금 계좌, 주문 처리", `${L("products", "상품 · 재고")} · ${L("store", "배송비 · 입금 계좌")} · ${L("orders", "주문")}`],
     ["Contact 문의", "공연·워크숍, 협업, 스토어 문의 접수", L("inquiries", "받은 문의")],
@@ -1927,6 +1927,7 @@ function vAdmin(tab){
   if (!S.loaded) return `<div class="wrap done"><p class="muted">불러오는 중…</p></div>`;
   if (!S.authed) return vLogin();
   if (tab === "profile") tab = "basic";
+  if (tab === "projects") tab = "guide";
   tab = tab || "guide";
   const groups = adminGroups();
   const grp = groups.find(g => g.items.some(it => it[0] === tab)) || groups[0];
@@ -1968,7 +1969,7 @@ function stockTable(x){
 /* 메뉴 키 → 사람이 읽는 이름 */
 function pageLabel(k){
   const fixed = {home: "홈", about: "About (레퍼토리)", artist: "Artist (무용가)", store: "Store (상품 목록)", cart: "장바구니", checkout: "주문서", order: "주문 완료", orders: "주문 조회", news: "주요소식(언론)", schedule: "공연일정", privacy: "개인정보처리방침", sources: "자료출처",
-    portfolio_video: "Portfolio 영상", portfolio_gallery: "Portfolio 갤러리", portfolio_projects: "Portfolio 프로젝트", contact_performance: "Contact 공연·워크숍", contact_business: "Contact 협업", contact_store: "Contact 스토어 문의"};
+    portfolio_video: "Archive 영상", portfolio_gallery: "Archive 갤러리", portfolio_projects: "Archive 프로젝트(삭제됨)", contact_performance: "Contact 공연·워크숍", contact_business: "Contact 협업", contact_store: "Contact 스토어 문의"};
   if (fixed[k]) return fixed[k];
   if (k.startsWith("product:")){ const p = S.products.find(x => sKey(x.id) === k.slice(8)); return "상품: " + (p ? p.name : k.slice(8)); }
   return k;
