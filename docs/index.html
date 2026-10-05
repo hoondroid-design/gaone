@@ -269,6 +269,48 @@ p{margin:0 0 1em}
 .brandbox{border:1px solid var(--line);padding:18px 18px 4px;margin-bottom:36px}
 .brandbox .sec-head h2{font-size:1.3rem}
 .remember{grid-column:auto;font-size:.9rem;margin-top:-4px}
+.scards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.scards div{border:1px solid var(--line);padding:14px}
+.scards span{display:block;font-size:.8rem;color:var(--muted)}
+.scards b{font-size:1.6rem;font-family:var(--serif);font-variant-numeric:tabular-nums}
+@media (max-width:640px){.scards{grid-template-columns:1fr 1fr}}
+.sbox{border:1px solid var(--line);padding:14px 16px;margin-bottom:14px}
+.sbox h3{font-size:.95rem;margin-bottom:10px;font-family:var(--sans)}
+.schart{display:flex;align-items:flex-end;gap:2px;height:150px;border-bottom:1px solid var(--line)}
+.scol{flex:1;height:100%;position:relative;display:flex;align-items:flex-end;justify-content:center}
+.scol i{position:absolute;bottom:0;left:10%;right:10%;background:rgba(179,156,104,.45)}
+.scol em{position:absolute;bottom:0;left:30%;right:30%;background:var(--kasa)}
+.slegend{display:flex;gap:16px;font-size:.8rem;margin-top:8px;flex-wrap:wrap}
+.slegend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:middle}
+.lg-pv{background:rgba(179,156,104,.45)} .lg-uv{background:var(--kasa)}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:820px){.sgrid{grid-template-columns:1fr}}
+.stbl{width:100%;border-collapse:collapse;font-size:.88rem}
+.stbl td{padding:6px 4px;border-bottom:1px solid var(--line)}
+.stbl td:nth-child(2){width:38%}
+.stbl td:nth-child(3),.stbl td:nth-child(4){text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sbar{display:block;height:8px;background:var(--surface)}
+.sbar i{display:block;height:100%;background:var(--brass)}
+.popwrap{position:fixed;z-index:45;top:calc(env(safe-area-inset-top,0px) + var(--hdr) + 16px);left:16px;display:flex;gap:12px;align-items:flex-start;pointer-events:none}
+.pop{pointer-events:auto;width:400px;background:var(--paper);border:1px solid var(--line);box-shadow:0 14px 44px rgba(0,0,0,.65);display:flex;flex-direction:column}
+.pop-body{width:400px;height:500px;overflow:auto;-webkit-overflow-scrolling:touch;background:var(--surface)}
+.pop-body:focus-visible{outline:2px solid var(--kasa);outline-offset:-2px}
+.pop-link{display:block;color:inherit;text-decoration:none}
+.pop-fit{display:block;width:100%;height:auto;max-width:100%}
+.pop-orig{display:block;max-width:none;width:auto;height:auto}
+.pop-text{padding:22px 22px 26px;line-height:1.75;font-size:.95rem;overflow-wrap:anywhere}
+.pop-text h2{font-size:1.25rem;margin-bottom:12px}
+.pop-text p{margin:0 0 .9em}
+.pop-foot{display:flex;border-top:1px solid var(--line)}
+.pop-foot button{flex:1;background:var(--paper);color:var(--ink);border:0;padding:11px 8px;font-size:.85rem;cursor:pointer;min-height:44px}
+.pop-foot button + button{border-left:1px solid var(--line)}
+.pop-foot button:hover{background:var(--surface)}
+@media (max-width:860px){
+  .popwrap{left:0;right:0;top:calc(env(safe-area-inset-top,0px) + var(--hdr) + 8px);flex-direction:column;align-items:center;padding:0 12px;gap:10px}
+  .pop{width:100%;max-width:420px}
+  .pop-body{width:100%;height:auto;max-height:calc((100svh - var(--hdr) - env(safe-area-inset-top,0px) - 40px - var(--n) * 56px) / var(--n))}
+  .pop-body:has(.pop-text){min-height:160px}
+}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -519,13 +561,14 @@ footer{border-top:1px solid var(--line);padding:40px 0 48px;font-size:.88rem;col
 <body>
 <header id="hdr"></header>
 <main id="main"></main>
+<div id="pops"></div>
 <footer id="ftr"></footer>
 <div id="modal"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, where, orderBy, limit, writeBatch, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, where, orderBy, limit, writeBatch, getDocs, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword, signOut, multiFactor, TotpMultiFactorGenerator, getMultiFactorResolver, sendPasswordResetEmail, sendEmailVerification, reload, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { FIREBASE_CONFIG, ADMIN_UIDS, REQUIRE_MFA, SITE_NAME } from "./config.js";
@@ -604,7 +647,7 @@ const FS = {
 
 /* ---------- state ---------- */
 const S = {
-  products: [], videos: [], gallery: [], projects: [], news: [], performances: [], meta: {}, store: {}, keep: {}, lookup: null, lastOrder: null, slides: [], slide: 0, slidePaused: false, profile: {},
+  products: [], videos: [], gallery: [], projects: [], news: [], performances: [], popups: [], popClosed: {}, meta: {}, store: {}, keep: {}, lookup: null, lastOrder: null, slides: [], slide: 0, slidePaused: false, profile: {},
   myOrders: [], allOrders: [], inquiries: [],
   db: null, uid: null, authUser: null, isAdmin: false, mfaOk: false, mfaEnrolled: false, authed: false, authStep: "login", mfaResolver: null, totpSecret: null, fails: 0, lockUntil: 0, adminStarted: false, online: CONFIGURED, loaded: false, canUpload: false,
   cart: loadCart(), drafts: {}, qty: {}, optSel: {}, pdImg: {}, edit: null, confirmDel: null,
@@ -1267,6 +1310,15 @@ const SCHEMA = {
     {k:"title",l:"작품, 프로젝트명",req:1,wide:1},{k:"year",l:"연도",req:1},{k:"genre",l:"분야",t:"select",opts:["전통춤 기반 창작","미디어아트","실용음악","패션","기타 협업"]},
     {k:"partners",l:"함께한 아티스트, 기관",wide:1},{k:"description",l:"소개",t:"textarea",wide:1},{k:"link",l:"관련 링크",wide:1},{k:"image",l:"대표 이미지",t:"image",wide:1}],
     sub: x => `${x.year || ""}, ${x.genre || ""}`, thumb: x => x.image },
+  popups: { label: "팝업", fields: [
+    {k:"title",l:"관리용 이름",req:1,wide:1,hint:"관리자만 보는 이름이에요. 예: 11월 정기공연 안내"},
+    {k:"start",l:"게시 시작일",t:"date",req:1,hint:"이 날 0시(한국 시간)부터 보여요."},{k:"end",l:"게시 종료일",t:"date",req:1,hint:"이 날 밤 12시(한국 시간)까지 보이고 자동으로 내려가요."},
+    {k:"kind",l:"팝업 형태",t:"select",opts:["이미지","텍스트"],req:1},{k:"order",l:"순서",t:"number",hint:"작은 숫자가 왼쪽에 나와요."},
+    {k:"image",l:"팝업 이미지 (이미지 형태)",t:"image",wide:1,hint:"완성된 팝업 이미지를 올려요. 권장 크기는 가로 400 × 세로 500px이고, 휴대폰에서도 선명하게 보이려면 800 × 1000px로 만들어 주세요."},
+    {k:"fit",l:"이미지 표시 방식",t:"select",opts:["가로 폭에 맞춤 (세로 스크롤)","원본 크기 (상하, 좌우 스크롤)"],wide:1,hint:"팝업 칸(400 × 500px)보다 큰 이미지는 스크롤로 볼 수 있어요."},
+    {k:"heading",l:"제목 (텍스트 형태)",wide:1},{k:"text",l:"내용 (텍스트 형태)",t:"textarea",rows:8,wide:1,hint:"빈 줄로 문단을 나눠요. 내용이 길면 팝업 안에서 스크롤돼요."},
+    {k:"link",l:"누르면 이동할 주소 (선택)",wide:1,hint:"예: #/store (사이트 안 메뉴) 또는 https://… (다른 사이트, 새 창으로 열림). 비워 두면 누르지 않아요."}],
+    title: x => x.title, sub: x => `${popState(x)}, ${String(x.start || "").replace(/-/g, ".")} ~ ${String(x.end || "").replace(/-/g, ".")}, ${x.kind || ""}`, badge: x => popState(x) === "게시 중" ? "" : "", thumb: x => x.kind === "이미지" ? x.image : "" },
   slides: { label: "메인 슬라이드", fields: [
     {k:"image",l:"사진",t:"image",req:1,wide:1,hint:"가로로 긴 고화질 사진(2400px 이상)을 권해요. 글자가 왼쪽 아래에 올라가니 그 자리가 어두운 사진이 잘 어울려요."},
     {k:"order",l:"순서",t:"number",hint:"작은 숫자가 먼저 나와요."},{k:"focus",l:"사진 기준점",t:"select",opts:["가운데","위쪽","아래쪽"],hint:"화면 비율에 따라 잘릴 때 어느 쪽을 살릴지 정해요."},
@@ -1611,9 +1663,10 @@ function vAdmin(tab){
   tab = tab || "orders";
   const newOrders = S.allOrders.filter(o => o.status === "입금대기").length;
   const newInq = S.inquiries.filter(q => q.status === "새 문의").length;
-  const nav = [["orders","주문",newOrders],["products","상품"],["store","스토어 설정"],["marketing","마케팅DB"],["terms","약관 관리"],["inquiries","문의",newInq],["slides","메인 슬라이드"],["profile","무용가 정보"],["performances","공연 기록"],["news","소식, 언론"],["videos","영상"],["gallery","갤러리"],["projects","프로젝트"],["footer","풋터 관리"],["meta","메타 태그"],["account","보안, 계정"]];
+  const nav = [["orders","주문",newOrders],["stats","방문 통계"],["products","상품"],["store","스토어 설정"],["marketing","마케팅DB"],["terms","약관 관리"],["inquiries","문의",newInq],["slides","메인 슬라이드"],["popups","팝업 관리"],["profile","무용가 정보"],["performances","공연 기록"],["news","소식, 언론"],["videos","영상"],["gallery","갤러리"],["projects","프로젝트"],["footer","풋터 관리"],["meta","메타 태그"],["account","보안, 계정"]];
   let body;
   if (tab === "orders") body = adminOrders();
+  else if (tab === "stats") body = adminStats();
   else if (tab === "terms") body = docForm("terms", "약관 관리", "손님에게 보이는 약관을 한곳에서 관리해요. 개인정보처리방침은 풋터의 '개인정보처리방침' 페이지와 주문서, 문의 양식의 '내용 보기'에 연결돼요. 상품별 구매 약관(필수)은 각 상품 설정에서 따로 적어요.");
   else if (tab === "footer") body = docForm("footer", "풋터 관리", "모든 페이지 맨 아래에 보이는 사업자 정보와 저작권 안내를 관리해요.");
   else if (tab === "slides" && !(S.edit && S.edit.col === "slides")) body = `<div class="brandbox">${docForm("brand", "홈페이지 제목과 파비콘", "")}</div>` + adminCollection("slides");
@@ -1635,6 +1688,61 @@ function stockTable(x){
     return `<tr><td>${esc(r.name || "전체")}</td><td>${t === null ? "∞" : t}</td><td>${sa.sold}${sa.wait ? ` <span class="muted">(+대기 ${sa.wait})</span>` : ""}</td><td class="${rem !== null && rem <= 0 ? "zero" : ""}">${rem === null ? "∞" : rem <= 0 ? "0 SOLD OUT" : rem}</td></tr>`; }).join("");
   return `<table class="stk"><thead><tr><th>${hasOpts(x) ? esc(optLabel(x)) : "재고"}</th><th>총 재고</th><th>판매</th><th>잔여</th></tr></thead><tbody>${cells}</tbody></table>`;
 }
+/* 메뉴 키 → 사람이 읽는 이름 */
+function pageLabel(k){
+  const fixed = {home: "홈", about: "About (레퍼토리)", artist: "Artist (무용가)", store: "Store (상품 목록)", cart: "장바구니", checkout: "주문서", order: "주문 완료", orders: "주문 조회", news: "소식", privacy: "개인정보처리방침", sources: "자료출처",
+    portfolio_video: "Portfolio 영상", portfolio_gallery: "Portfolio 갤러리", portfolio_projects: "Portfolio 프로젝트", contact_performance: "Contact 공연·워크숍", contact_business: "Contact 협업", contact_store: "Contact 스토어 문의"};
+  if (fixed[k]) return fixed[k];
+  if (k.startsWith("product:")){ const p = S.products.find(x => sKey(x.id) === k.slice(8)); return "상품: " + (p ? p.name : k.slice(8)); }
+  return k;
+}
+function refLabel(k){
+  const fixed = {direct: "직접 방문, 북마크, 앱 안 링크", naver: "네이버", google: "구글", instagram: "인스타그램", facebook: "페이스북", kakao: "카카오톡, 카카오", youtube: "유튜브", daum: "다음", bing: "빙", x: "X(트위터)"};
+  if (fixed[k]) return fixed[k];
+  if (k.startsWith("utm:")) return "링크 꼬리표: " + k.slice(4);
+  return k;
+}
+function statDays(n){ const out = []; for (let i = n - 1; i >= 0; i--) out.push(fmtDT(Date.now() - i * 86400000).slice(0, 10).replace(/\./g, "-")); return out; }
+async function loadStats(n){
+  S.statsN = n; S.statsBusy = true; render();
+  const days = statDays(n);
+  try {
+    const docs = await Promise.all(days.map(d => FS.doc("statsDaily/" + d).get().then(x => [d, x.exists ? x.data() : null]).catch(() => [d, null])));
+    S.stats = {n, days: docs};
+  } catch(e){ toast(failMsg(e, "통계를 불러오지 못했어요.")); }
+  S.statsBusy = false; render();
+}
+function sumMaps(list, field){ const m = {}; list.forEach(([, d]) => Object.entries((d && d[field]) || {}).forEach(([k, v]) => m[k] = (m[k] || 0) + (Number(v) || 0))); return Object.entries(m).sort((a, b) => b[1] - a[1]); }
+function adminStats(){
+  if (!S.stats && !S.statsBusy){ setTimeout(() => loadStats(S.statsN || 30), 0); }
+  const st = S.stats, n = S.statsN || 30;
+  const head = `<div class="sec-head" style="margin-bottom:12px"><h2>방문 통계</h2><div class="tabs" style="margin:0">${[7, 30, 90].map(x => `<button class="${n === x ? "on" : ""}" data-act="stats-n" data-v="${x}">최근 ${x}일</button>`).join("")}<button data-act="stats-n" data-v="${n}">새로고침</button></div></div>`;
+  if (!st) return head + `<p class="muted">불러오는 중…</p>`;
+  const days = st.days, pv = days.reduce((a, [, d]) => a + ((d && d.pv) || 0), 0), uv = days.reduce((a, [, d]) => a + ((d && d.uv) || 0), 0);
+  const today = days[days.length - 1][1] || {}, max = Math.max(1, ...days.map(([, d]) => (d && d.pv) || 0));
+  const refs = sumMaps(days, "refs"), paths = sumMaps(days, "paths"), refT = refs.reduce((a, r) => a + r[1], 0) || 1, pathT = paths.reduce((a, r) => a + r[1], 0) || 1;
+  const bar = (v, t) => `<span class="sbar"><i style="width:${Math.round(v / t * 100)}%"></i></span>`;
+  return head + `
+  <div class="scards"><div><span>오늘 방문자</span><b>${today.uv || 0}</b></div><div><span>오늘 조회</span><b>${today.pv || 0}</b></div><div><span>${st.n}일 방문자</span><b>${uv.toLocaleString("ko-KR")}</b></div><div><span>${st.n}일 조회</span><b>${pv.toLocaleString("ko-KR")}</b></div></div>
+  <section class="sbox"><h3>일별 방문자와 조회 수</h3>
+    <div class="schart" role="img" aria-label="일별 조회 수 막대 그래프">${days.map(([d, x]) => `<div class="scol" title="${d} 방문자 ${(x && x.uv) || 0}, 조회 ${(x && x.pv) || 0}"><i style="height:${Math.round(((x && x.pv) || 0) / max * 100)}%"></i><em style="height:${Math.round(((x && x.uv) || 0) / max * 100)}%"></em></div>`).join("")}</div>
+    <div class="slegend"><span><i class="lg-pv"></i>조회</span><span><i class="lg-uv"></i>방문자</span><span class="muted">${days[0][0]} ~ ${days[days.length - 1][0]}</span></div></section>
+  <div class="sgrid">
+    <section class="sbox"><h3>유입 경로 <span class="muted">(첫 방문 기준)</span></h3>${refs.length ? `<table class="stbl">${refs.map(([k, v]) => `<tr><td>${esc(refLabel(k))}</td><td>${bar(v, refT)}</td><td>${v}</td><td class="muted">${Math.round(v / refT * 100)}%</td></tr>`).join("")}</table>` : `<p class="muted">아직 기록이 없어요.</p>`}</section>
+    <section class="sbox"><h3>메뉴별 조회 수</h3>${paths.length ? `<table class="stbl">${paths.map(([k, v]) => `<tr><td>${esc(pageLabel(k))}</td><td>${bar(v, pathT)}</td><td>${v}</td><td class="muted">${Math.round(v / pathT * 100)}%</td></tr>`).join("")}</table>` : `<p class="muted">아직 기록이 없어요.</p>`}</section>
+  </div>
+  <div class="btn-row" style="margin-top:16px"><button class="btn ghost sm" data-act="stats-xls">엑셀 다운로드</button>${FIREBASE_CONFIG && FIREBASE_CONFIG.measurementId ? `<a class="btn ghost sm" href="https://analytics.google.com/" target="_blank" rel="noopener">구글 애널리틱스에서 자세히 보기</a>` : ""}</div>
+  <p class="hint" style="margin-top:12px">방문자는 같은 브라우저를 하루 한 번만 셉니다. 관리자로 로그인한 상태의 방문, 검색 로봇은 제외돼요. 인스타그램, 유튜브, 포스터 QR 등에 링크를 걸 때 주소 뒤에 <code>?utm_source=instagram</code>처럼 꼬리표를 붙이면 '링크 꼬리표'로 따로 집계돼요. 날짜는 한국 시간 기준이에요.</p>`;
+}
+async function exportStats(){
+  const st = S.stats; if (!st) return;
+  try { await loadXLSX(); } catch(e){ toast("엑셀 도구를 불러오지 못했어요."); return; }
+  const wb = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(wb, sheet([["날짜","방문자","조회 수"], ...st.days.map(([d, x]) => [d, (x && x.uv) || 0, (x && x.pv) || 0])], [12, 10, 10]), "일별");
+  window.XLSX.utils.book_append_sheet(wb, sheet([["유입 경로","방문 수"], ...sumMaps(st.days, "refs").map(([k, v]) => [refLabel(k), v])], [30, 10]), "유입경로");
+  window.XLSX.utils.book_append_sheet(wb, sheet([["메뉴","조회 수"], ...sumMaps(st.days, "paths").map(([k, v]) => [pageLabel(k), v])], [34, 10]), "메뉴별");
+  window.XLSX.writeFile(wb, `방문통계_${st.n}일_${stampNow()}.xlsx`);
+}
 function adminCollection(col){
   const sch = SCHEMA[col];
   if (S.edit && S.edit.col === col){
@@ -1645,7 +1753,8 @@ function adminCollection(col){
   }
   const list = S[col];
   const title = sch.title || (x => x.title || x.name);
-  return `<div class="sec-head" style="margin-bottom:20px"><h2>${sch.label} <span class="muted" style="font-size:1rem">${list.length}</span></h2><button class="btn sm" data-act="new" data-col="${col}">새 ${sch.label} 등록</button></div>
+  return `<div class="sec-head" style="margin-bottom:20px"><h2>${sch.label} <span class="muted" style="font-size:1rem">${list.length}${col === "popups" ? " / 최대 2" : ""}</span></h2><button class="btn sm" data-act="new" data-col="${col}" ${col === "popups" && list.length >= POP_MAX ? "disabled" : ""}>새 ${sch.label} 등록</button></div>
+  ${col === "popups" ? `<p class="hint" style="margin:-8px 0 16px">팝업은 최대 ${POP_MAX}개까지 등록할 수 있어요. 게시 기간에 맞춰 홈 화면에 자동으로 보이고 내려가요. 새 팝업을 올리려면 지난 팝업을 삭제해 주세요.</p>` : ""}
   ${list.length ? `<div class="alist">${list.map(x => `<div class="arow"><div class="at">${sch.thumb ? imgOr(sch.thumb(x), x.id, "") : `<div style="display:grid;place-items:center;height:100%;color:var(--muted)">${col === "videos" ? "▶" : "글"}</div>`}</div>
     <div><div class="an">${esc(title(x))}${sch.badge && sch.badge(x) ? ` <span class="so-tag">${sch.badge(x)}</span>` : ""}</div>${sch.stock ? sch.stock(x) : ""}<div class="as">${esc(sch.sub(x))}</div></div>
     <div class="aa"><button class="btn ghost sm" data-act="edit" data-col="${col}" data-id="${esc(x.id)}">수정</button><button class="btn ghost sm" data-act="del" data-col="${col}" data-id="${esc(x.id)}" style="${S.confirmDel === x.id ? "color:var(--kasa);border-color:var(--kasa)" : ""}">${S.confirmDel === x.id ? "한 번 더 눌러 삭제" : "삭제"}</button></div></div>`).join("")}</div>`
@@ -1921,12 +2030,34 @@ function view(){
     default: return vHome();
   }
 }
+const POP_MAX = 2;
+function popState(x){ const t = todayKST(); return !x.start || !x.end ? "날짜 미설정" : t < x.start ? "게시 예정" : t > x.end ? "게시 종료" : "게시 중"; }
+function popHiddenToday(id){ try { return localStorage.getItem("gw-pop-" + id) === todayKST(); } catch(e){ return false; } }
+function vPopups(){
+  if (route()[0] || S.authed || S.modal) return "";
+  const list = (S.popups || []).filter(x => popState(x) === "게시 중" && !S.popClosed[x.id] && !popHiddenToday(x.id)).slice(0, POP_MAX);
+  if (!list.length) return "";
+  const body = x => {
+    const inner = x.kind === "이미지"
+      ? `<img src="${blob(x.image)}" alt="${esc(x.title || "공지")}" class="${String(x.fit || "").startsWith("원본") ? "pop-orig" : "pop-fit"}">`
+      : `<div class="pop-text">${x.heading ? `<h2>${esc(x.heading)}</h2>` : ""}${paras(x.text)}</div>`;
+    const link = String(x.link || "").trim();
+    if (!link) return inner;
+    const ext = /^https?:\/\//i.test(link), safe = ext || link.startsWith("#/");
+    return safe ? `<a href="${esc(link)}" ${ext ? 'target="_blank" rel="noopener"' : `data-act="pop-go" data-id="${esc(x.id)}"`} class="pop-link">${inner}</a>` : inner;
+  };
+  return `<div class="popwrap" style="--n:${list.length}">${list.map(x => `<section class="pop" role="dialog" aria-label="${esc(x.title || "알림")}">
+      <div class="pop-body" tabindex="0">${body(x)}</div>
+      <div class="pop-foot"><button data-act="pop-today" data-id="${esc(x.id)}">오늘 하루 열지 않기</button><button data-act="pop-close" data-id="${esc(x.id)}">닫기</button></div>
+    </section>`).join("")}</div>`;
+}
 function render(){
   S.pending = false;
   $("#hdr").innerHTML = vHeader();
   $("#main").innerHTML = view();
   $("#ftr").innerHTML = vFooter();
   $("#modal").innerHTML = vModal();
+  $("#pops").innerHTML = vPopups();
   document.body.style.overflow = S.modal ? "hidden" : "";
   if (S.totpSecret && document.getElementById("qrbox")) drawQr();
 }
@@ -1947,7 +2078,63 @@ window.addEventListener("hashchange", () => {
   render();
   if (h.split("/").slice(0, 2).join("/") !== lastRoute.split("/").slice(0, 2).join("/") || route()[0] === "product" || route()[0] === "news") window.scrollTo(0, 0);
   lastRoute = h;
+  trackView();
 });
+
+/* ---------- 방문 통계 ----------
+   방법 1: Firebase에 하루 단위 집계(statsDaily/YYYY-MM-DD)만 저장. 개인 식별 정보, 쿠키 없음.
+   방법 2: 구글 애널리틱스(GA4). config.js의 measurementId가 있으면 자동 연결. */
+const BOT_RE = /bot|crawl|spider|slurp|bingpreview|headless|lighthouse|facebookexternalhit|kakaotalk-scrap|yeti|daum/i;
+const isBot = () => navigator.webdriver || BOT_RE.test(navigator.userAgent || "");
+const sKey = v => String(v || "").toLowerCase().replace(/[^a-z0-9가-힣_:.-]/g, "_").slice(0, 60);
+function pageKey(){
+  const [r, a] = route();
+  if (!r) return "home";
+  if (r === "product") return "product:" + sKey(a);
+  if (r === "portfolio") return "portfolio_" + sKey(a || "video");
+  if (r === "contact") return "contact_" + sKey(a || "performance");
+  if (r === "checkout") return "checkout";
+  return sKey(r);
+}
+function refKey(){
+  const q = new URLSearchParams(location.search);
+  const utm = q.get("utm_source"); if (utm) return "utm:" + sKey(utm);
+  let host = ""; try { host = document.referrer ? new URL(document.referrer).hostname : ""; } catch(e){}
+  if (!host || host === location.hostname) return "direct";
+  const map = [["naver", /naver\./], ["google", /google\./], ["instagram", /instagram\.|l\.instagram/], ["facebook", /facebook\.|fb\.com/], ["kakao", /kakao/], ["youtube", /youtube\.|youtu\.be/], ["daum", /daum\.|kakaocorp/], ["bing", /bing\./], ["x", /twitter\.|t\.co$|x\.com/]];
+  for (const [k, re] of map) if (re.test(host)) return k;
+  return sKey(host.replace(/^www\./, ""));
+}
+const todayKST = () => fmtDT(Date.now()).slice(0, 10).replace(/\./g, "-");
+let gaReady = false;
+function gaInit(){
+  const id = FIREBASE_CONFIG && FIREBASE_CONFIG.measurementId;
+  if (!id || gaReady || isBot()) return;
+  gaReady = true;
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){ window.dataLayer.push(arguments); };
+  window.gtag("js", new Date());
+  window.gtag("config", id, {send_page_view: false});
+  const sc = document.createElement("script"); sc.async = true; sc.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(id); document.head.appendChild(sc);
+}
+let lastTracked = "", trackQueue = [];
+function trackView(){
+  if (route()[0] === "admin" || S.authed || isBot()) return;
+  const key = pageKey(); if (key === lastTracked) return; lastTracked = key;
+  /* 방법 2: GA4 — 메뉴 주소를 보기 좋은 경로로 바꿔 전송 (#/about → /about) */
+  if (gaReady){ const path = "/" + (location.hash.replace(/^#\/?/, "") || ""); try { window.gtag("event", "page_view", {page_location: location.origin + path + location.search, page_path: path, page_title: document.title}); } catch(e){} }
+  /* 방법 1: Firebase 하루 집계 */
+  if (!S.online) return;
+  if (!S.uid){ trackQueue.push(key); return; }
+  sendStat(key);
+}
+async function sendStat(key){
+  const day = todayKST(), data = {pv: increment(1), paths: {[key]: increment(1)}, updatedAt: Date.now()};
+  try { if (localStorage.getItem("gw-uv") !== day){ data.uv = increment(1); localStorage.setItem("gw-uv", day); } } catch(e){}
+  try { if (!sessionStorage.getItem("gw-landed")){ data.refs = {[refKey()]: increment(1)}; sessionStorage.setItem("gw-landed", "1"); } } catch(e){}
+  try { await FS.doc("statsDaily/" + day).merge(data); } catch(e){}
+}
+function flushTrack(){ const q = trackQueue; trackQueue = []; q.forEach(sendStat); }
 
 /* ---------- slideshow ---------- */
 function goSlide(n){
@@ -1976,6 +2163,11 @@ document.addEventListener("click", async e => {
     case "menu": S.menuOpen = !S.menuOpen; render(); break;
     case "gorep": e.preventDefault(); location.hash = "#/about"; setTimeout(() => document.getElementById("rep-" + id)?.scrollIntoView(), 60); break;
     case "logout": logout(); break;
+    case "stats-n": if (S.authed) loadStats(Number(el.dataset.v) || 30); break;
+    case "stats-xls": if (S.authed) exportStats(); break;
+    case "pop-close": S.popClosed[id] = true; render(); break;
+    case "pop-today": try { localStorage.setItem("gw-pop-" + id, todayKST()); } catch(e){} S.popClosed[id] = true; render(); break;
+    case "pop-go": S.popClosed[id] = true; break;
     case "odetail": S.openOrder = S.openOrder === id ? null : id; render(); break;
     case "xls-orders": if (S.authed) requireStepUp(exportOrders, "주문 엑셀에는 손님 개인정보가 담겨 있어 한 번 더 확인해요."); break;
     case "mkt-open": if (S.authed) requireStepUp(loadMarketing, "마케팅DB를 열기 전에 한 번 더 확인해요."); break;
@@ -2027,7 +2219,8 @@ document.addEventListener("click", async e => {
     case "buynow": { const k = qtyKey(id); if (buyNow(id, selQty(id))){ delete S.qty[k]; location.hash = "#/checkout/now"; } break; }
     case "cq": { const l = S.cart.find(x => lineKey(x) === id); if (!l) break; const p = findP(l.pid); l.qty = Math.max(1, l.qty + Number(el.dataset.d)); if (p){ const max = stockOf(p, l.opt); if (max !== Infinity) l.qty = Math.min(l.qty, Math.max(1, max)); } saveCart(); render(); break; }
     case "crm": S.cart = S.cart.filter(x => lineKey(x) !== id); saveCart(); render(); break;
-    case "new": S.edit = {col: el.dataset.col, id: null}; S.drafts.edit = el.dataset.col === "products" ? {status: "판매중", images: []} : {}; render(); window.scrollTo(0, 0); break;
+    case "new": if (el.dataset.col === "popups" && S.popups.length >= POP_MAX){ toast(`팝업은 최대 ${POP_MAX}개까지 등록할 수 있어요`); break; }
+      S.edit = {col: el.dataset.col, id: null}; S.drafts.edit = el.dataset.col === "products" ? {status: "판매중", images: []} : el.dataset.col === "popups" ? {kind: "이미지", fit: "가로 폭에 맞춤 (세로 스크롤)", start: todayKST(), end: todayKST()} : {}; render(); window.scrollTo(0, 0); break;
     case "edit": { const x = S[el.dataset.col].find(y => y.id === id); S.edit = {col: el.dataset.col, id}; const dd = clone(x); delete dd.id;
       if (el.dataset.col === "products"){
         if (Array.isArray(dd.options)) dd.options = dd.options.map(o => { const t = totalOf(id, o); return {name: o.name, total: t === null ? "" : t}; });
@@ -2275,6 +2468,12 @@ async function saveItem(col, form){
     const sold = S.edit && S.edit.id ? salesOf(S.edit.id, "").sold : 0;
     data.stock = data.stockTotal === null || data.stockTotal === undefined ? null : Math.max(0, data.stockTotal - sold);
   }
+  if (col === "popups"){
+    if (!S.edit.id && S.popups.length >= POP_MAX){ toast(`팝업은 최대 ${POP_MAX}개까지 등록할 수 있어요`); return; }
+    if (data.end < data.start){ toast("게시 종료일이 시작일보다 빨라요"); return; }
+    if (data.kind === "이미지" && !data.image){ toast("팝업 이미지를 올려 주세요"); return; }
+    if (data.kind === "텍스트" && !data.text){ toast("팝업 내용을 적어 주세요"); return; }
+  }
   if (col === "videos" && !ytId(data.url)){ toast("YouTube 링크 형식을 확인해 주세요"); return; }
   S.busy = true; render();
   try {
@@ -2354,6 +2553,7 @@ function expectedTotal(o){
 
 /* ---------- data ---------- */
 const SORTERS = {
+  popups: (a, b) => (Number(a.order ?? 999) - Number(b.order ?? 999)) || ((a.createdAt || 0) - (b.createdAt || 0)),
   products: (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
   videos: (a, b) => String(b.date || "").localeCompare(String(a.date || "")),
   gallery: (a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.createdAt || 0) - (a.createdAt || 0),
@@ -2379,6 +2579,7 @@ async function boot(){
   let myUnsub = null;
   onAuthStateChanged(fauth, async u => {
     S.authUser = u; S.uid = u ? u.uid : null;
+    if (u && u.isAnonymous) flushTrack();
     S.isAdmin = !!u && !u.isAnonymous && ADMIN_UIDS.includes(u.uid);
     S.mfaEnrolled = !!u && !u.isAnonymous && multiFactor(u).enrolledFactors.length > 0;
     S.mfaOk = false;
@@ -2392,6 +2593,7 @@ async function boot(){
   setTimeout(() => { if (!S.loaded){ S.loaded = true; softRender(); } }, 6000);
 }
 lastRoute = location.hash;
+gaInit(); trackView();
 restartSlides();
 boot();
 })();
