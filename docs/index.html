@@ -311,6 +311,28 @@ p{margin:0 0 1em}
   .pop-body{width:100%;height:auto;max-height:calc((100svh - var(--hdr) - env(safe-area-inset-top,0px) - 40px - var(--n) * 56px) / var(--n))}
   .pop-body:has(.pop-text){min-height:160px}
 }
+.en-sub{font-family:var(--sans);font-size:.55em;color:var(--muted);font-weight:400;letter-spacing:.06em;margin-left:6px}
+.subtabs{margin-top:-14px}
+.subtabs button{font-size:.82rem;padding:6px 12px}
+.sub-h{font-size:1.2rem;margin:4px 0 16px}
+.scheds{display:grid;gap:18px}
+.sched{display:grid;grid-template-columns:150px 1fr;gap:20px;border-top:1px solid var(--line);padding-top:18px}
+.sched.big{grid-template-columns:180px 1fr}
+.sched-poster{display:block;aspect-ratio:1/1.414;background:var(--surface);overflow:hidden;text-decoration:none}
+.sched-poster img{width:100%;height:100%;object-fit:cover}
+.sched-noposter{display:flex;align-items:center;justify-content:center;height:100%;padding:12px;text-align:center;font-family:var(--serif);color:var(--muted);font-size:.9rem}
+.sched-when{color:var(--kasa);font-size:.9rem;font-variant-numeric:tabular-nums;margin:0 0 6px}
+.sched h3{font-size:1.25rem;margin:0 0 6px}
+.sched h3 a{text-decoration:none}
+.sched-venue{color:var(--muted);margin:0 0 8px}
+.sched-sum{font-size:.92rem;line-height:1.7;margin:0 0 12px}
+.sched.past{opacity:.7}
+@media (max-width:560px){.sched,.sched.big{grid-template-columns:96px 1fr;gap:14px}.sched h3{font-size:1.05rem}.sched-sum{display:none}}
+.sched-detail{padding:24px 0 80px}
+.sd-grid{display:grid;grid-template-columns:minmax(0,340px) 1fr;gap:36px;align-items:start}
+.sd-grid h1{font-size:clamp(1.6rem,3.4vw,2.4rem);margin:4px 0 18px}
+.sd-poster img{width:100%;height:auto;border:1px solid var(--line)}
+@media (max-width:760px){.sd-grid{grid-template-columns:1fr}}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -565,6 +587,8 @@ footer{border-top:1px solid var(--line);padding:40px 0 48px;font-size:.88rem;col
 <footer id="ftr"></footer>
 <div id="modal"></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<!-- ▼ 공연일정 검색 노출 영역: 관리자 > 공연일정 > '검색 노출용 코드'로 만든 내용을 이 두 줄 사이에 붙여 넣으세요 ▼ -->
+<!-- ▲ 공연일정 검색 노출 영역 끝 ▲ -->
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -647,7 +671,7 @@ const FS = {
 
 /* ---------- state ---------- */
 const S = {
-  products: [], videos: [], gallery: [], projects: [], news: [], performances: [], popups: [], popClosed: {}, meta: {}, store: {}, keep: {}, lookup: null, lastOrder: null, slides: [], slide: 0, slidePaused: false, profile: {},
+  products: [], videos: [], gallery: [], projects: [], news: [], performances: [], popups: [], schedules: [], popClosed: {}, meta: {}, store: {}, keep: {}, lookup: null, lastOrder: null, slides: [], slide: 0, slidePaused: false, profile: {},
   myOrders: [], allOrders: [], inquiries: [],
   db: null, uid: null, authUser: null, isAdmin: false, mfaOk: false, mfaEnrolled: false, authed: false, authStep: "login", mfaResolver: null, totpSecret: null, fails: 0, lockUntil: 0, adminStarted: false, online: CONFIGURED, loaded: false, canUpload: false,
   cart: loadCart(), drafts: {}, qty: {}, optSel: {}, pdImg: {}, edit: null, confirmDel: null,
@@ -790,10 +814,10 @@ let lastRoute = "";
 function vHeader(){
   const r = route()[0];
   const shop = ["store","product","cart","checkout","order","orders"];
-  const items = [["about","About","레퍼토리"],["artist","Artist","무용가"],["portfolio","Portfolio","공연 기록"],["store","Store","스토어"],["contact","Contact","문의"]];
+  const items = [["","Home","메인페이지"],["about","About","레퍼토리"],["artist","Artist","아티스트"],["portfolio","Portfolio","포트폴리오"],["news","News","주요소식"],["store","Store","스토어"],["contact","Contact","문의"]];
   return `<div class="wrap hdr-in">
     <a class="brand" href="#/"><span>${esc(S.profile.siteTitle || S.profile.name || "무용가")}</span></a>
-    <nav class="nav ${S.menuOpen ? "open" : ""}" aria-label="주 메뉴">${items.map(([k, en, ko]) => `<a href="#/${k}" class="${r === k || (k === "store" && shop.includes(r)) ? "on" : ""}" ${r === k ? 'aria-current="page"' : ""}><span>${en}</span><small>${ko}</small></a>`).join("")}</nav>
+    <nav class="nav ${S.menuOpen ? "open" : ""}" aria-label="주 메뉴">${items.map(([k, en, ko]) => `<a href="#/${k}" class="${r === k || (k === "store" && shop.includes(r)) || (k === "news" && r === "schedule") ? "on" : ""}" ${r === k ? 'aria-current="page"' : ""}><span>${en}</span><small>${ko}</small></a>`).join("")}</nav>
     <div class="hdr-tools"><button class="menu-btn" data-act="menu" aria-expanded="${S.menuOpen}">메뉴</button></div>
   </div>`;
 }
@@ -841,6 +865,85 @@ function productCard(p){
   return `<a class="pcard" href="#/product/${encodeURIComponent(p.id)}"><div class="pimg">${imgOr((p.images || [])[0], p.id, p.name)}${soldOut(p) ? `<span class="soldout">SOLD OUT</span>` : (hasOpts(p) && p.options.some(optSoldOut) ? `<span class="soldout part">${esc(p.options.filter(optSoldOut).map(o => o.name).join(", "))} SOLD OUT</span>` : "")}</div>
   <div class="pname">${esc(p.name)}</div><div class="pprice">${priceHtml(p)}</div></a>`;
 }
+/* 공연일정: 새 '공연일정' 메뉴 + 예전 소식의 '일정' 글을 함께 */
+const WD = ["일", "월", "화", "수", "목", "금", "토"];
+function dLabel(d){ if (!d) return ""; return `${d.replace(/-/g, ".")} (${WD[new Date(d + "T12:00:00+09:00").getUTCDay()]})`; }
+function schedWhen(x){ return `${dLabel(x.date)}${x.time ? " " + x.time : ""}${x.endDate && x.endDate !== x.date ? ` ~ ${dLabel(x.endDate)}` : ""}`; }
+function isPast(x){ return String(x.endDate || x.date || "") < todayKST(); }
+function allSchedules(){
+  const legacy = (S.news || []).filter(n => n.type === "일정").map(n => ({id: "n-" + n.id, legacy: n.id, title: n.title, date: n.date, venue: n.venue || "", summary: n.body || n.summary || "", poster: n.image || "", ticketUrl: n.link || ""}));
+  return [...(S.schedules || []), ...legacy].sort(SORTERS.schedules);
+}
+function schedCard(x, big){
+  const ext = /^https?:\/\//i.test(String(x.ticketUrl || ""));
+  return `<article class="sched ${big ? "big" : ""} ${isPast(x) ? "past" : ""}">
+    <a class="sched-poster" href="#/schedule/${encodeURIComponent(x.id)}" aria-label="${esc(x.title)} 자세히">${x.poster ? `<img src="${blob(x.poster)}" alt="${esc(x.title)} 포스터" loading="lazy">` : `<span class="sched-noposter">${esc(x.title)}</span>`}</a>
+    <div class="sched-info">
+      <p class="sched-when">${esc(schedWhen(x))}${isPast(x) ? ` <span class="muted">지난 공연</span>` : ""}</p>
+      <h3><a href="#/schedule/${encodeURIComponent(x.id)}">${esc(x.title)}</a></h3>
+      ${x.venue ? `<p class="sched-venue">${esc(x.venue)}</p>` : ""}
+      ${x.summary && big ? `<p class="sched-sum">${esc(String(x.summary).split(/\n\s*\n/)[0]).slice(0, 160)}</p>` : ""}
+      <div class="btn-row">${x.ticketUrl && ext && !isPast(x) ? `<a class="btn kasa sm" href="${esc(x.ticketUrl)}" target="_blank" rel="noopener">예매하기${x.ticketName ? ` · ${esc(x.ticketName)}` : ""}</a>` : ""}<a class="btn ghost sm" href="#/schedule/${encodeURIComponent(x.id)}">자세히</a></div>
+    </div></article>`;
+}
+function newsTabs(on){ return `<div class="tabs"><a href="#/news" class="${on === "press" ? "on" : ""}">언론보도</a><a href="#/schedule" class="${on === "schedule" ? "on" : ""}">공연일정</a></div>`; }
+const pressList = () => (S.news || []).filter(n => n.type !== "일정");
+function vSchedule(id){
+  const all = allSchedules();
+  if (id){
+    const x = all.find(y => y.id === id);
+    if (!x) return `<div class="wrap done"><h1>${S.loaded ? "공연 정보를 찾을 수 없어요" : "불러오는 중…"}</h1><a class="btn ghost" href="#/schedule">공연일정 목록</a></div>`;
+    const ext = /^https?:\/\//i.test(String(x.ticketUrl || ""));
+    return `<div class="wrap"><article class="sched-detail"><a href="#/schedule" class="muted" style="font-size:.88rem">공연일정 목록</a>
+      <div class="sd-grid">${x.poster ? `<div class="sd-poster"><img src="${blob(x.poster)}" alt="${esc(x.title)} 포스터"></div>` : ""}
+      <div><p class="sched-when" style="margin-top:16px">${esc(schedWhen(x))}${isPast(x) ? ` <span class="muted">지난 공연</span>` : ""}</p><h1>${esc(x.title)}</h1>
+        <dl class="kv"><dt>일시</dt><dd>${esc(schedWhen(x))}</dd><dt>장소</dt><dd>${esc(x.venue || "")}${x.address ? `<br><span class="muted">${esc(x.address)}</span>` : ""}</dd>${x.price ? `<dt>관람료</dt><dd>${esc(x.price)}</dd>` : ""}${x.ticketName || x.ticketUrl ? `<dt>예매처</dt><dd>${esc(x.ticketName || "예매 페이지")}</dd>` : ""}</dl>
+        ${x.ticketUrl && ext && !isPast(x) ? `<a class="btn kasa" href="${esc(x.ticketUrl)}" target="_blank" rel="noopener">예매하기</a>` : ""}
+        ${x.summary ? `<div class="prose" style="margin-top:24px">${paras(x.summary)}</div>` : ""}</div></div></article></div>`;
+  }
+  const up = all.filter(x => !isPast(x)), past = all.filter(isPast).reverse();
+  return `<div class="wrap page-head"><h1>주요소식 News</h1><p>공연일정과 언론보도를 모았습니다.</p></div>
+  <div class="wrap" style="padding-bottom:80px">${newsTabs("schedule")}
+    <h2 class="sub-h">다가오는 공연</h2>${up.length ? `<div class="scheds">${up.map(x => schedCard(x, true)).join("")}</div>` : (S.loaded ? `<div class="empty">예정된 공연이 없어요.</div>` : loading())}
+    ${past.length ? `<h2 class="sub-h" style="margin-top:48px">지난 공연</h2><div class="scheds">${past.map(x => schedCard(x, false)).join("")}</div>` : ""}
+  </div>`;
+}
+/* ---------- 검색 노출: schema.org 공연(DanceEvent) 정보 ---------- */
+const SITE_URL = () => String((S.meta && S.meta.canonical) || "https://www.gaoneway.com").replace(/\/+$/, "");
+function eventLD(x){
+  const t = x.time && /^\d{2}:\d{2}$/.test(x.time) ? `T${x.time}:00+09:00` : "";
+  const ev = {"@context": "https://schema.org", "@type": "DanceEvent", name: x.title, startDate: x.date + t,
+    eventStatus: "https://schema.org/EventScheduled", eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    location: {"@type": "Place", name: x.venue || "", address: x.address || x.venue || ""},
+    performer: {"@type": "Person", name: S.profile.name || ""},
+    organizer: {"@type": "Organization", name: S.profile.siteTitle || S.profile.name || "", url: SITE_URL()},
+    url: SITE_URL() + "/#/schedule/" + encodeURIComponent(x.id)};
+  if (x.endDate && x.endDate !== x.date) ev.endDate = x.endDate + t;
+  if (x.summary) ev.description = String(x.summary).slice(0, 500);
+  if (x.poster) ev.image = [blob(x.poster)];
+  if (x.ticketUrl && /^https?:\/\//i.test(x.ticketUrl)){ ev.offers = {"@type": "Offer", url: x.ticketUrl, availability: "https://schema.org/InStock", priceCurrency: "KRW"}; const n = String(x.price || "").replace(/[^0-9]/g, ""); if (n) ev.offers.price = n; else if (/무료/.test(x.price || "")) ev.offers.price = "0"; }
+  return ev;
+}
+function applyEventsLD(){
+  const list = allSchedules().filter(x => !isPast(x) && x.venue).slice(0, 20).map(eventLD);
+  let el = document.getElementById("ld-events");
+  if (!list.length){ if (el) el.remove(); return; }
+  if (!el){ el = document.createElement("script"); el.type = "application/ld+json"; el.id = "ld-events"; document.head.appendChild(el); }
+  el.textContent = JSON.stringify(list.length === 1 ? list[0] : list);
+}
+function seoEventsCode(){
+  const list = allSchedules().filter(x => !isPast(x)).slice(0, 20);
+  const ld = JSON.stringify(list.filter(x => x.venue).map(eventLD), null, 1).replace(/</g, "\\u003c");
+  const items = list.map(x => `  <li><strong>${esc(x.title)}</strong> | ${esc(schedWhen(x))} | ${esc(x.venue || "")}${x.price ? ` | ${esc(x.price)}` : ""}${x.ticketName ? ` | 예매: ${esc(x.ticketName)}` : ""}${x.summary ? `<br>${esc(String(x.summary).replace(/\s+/g, " ").slice(0, 200))}` : ""}</li>`).join("\n");
+  return `<script type="application/ld+json" id="ld-static">${ld}</`+`script>
+<section id="seo-static" aria-label="공연일정">
+ <h2>${esc(S.profile.name || "")} 공연일정</h2>
+ <ul>
+${items}
+ </ul>
+</section>`;
+}
+
 function newsRow(n){
   return `<a class="nrow" href="#/news/${encodeURIComponent(n.id)}"><span class="nd">${fmtDate(n.date)}</span><span class="nt">${esc(n.type || "")}</span><div><h3>${esc(n.title)}</h3>${n.summary ? `<p>${esc(n.summary)}</p>` : ""}</div></a>`;
 }
@@ -883,6 +986,10 @@ function vHome(){
     <div class="sec-head"><div><h2>레퍼토리</h2><p>무대에 올리는 여섯 가지 춤</p></div><a class="btn ghost sm" href="#/about">자세히 보기</a></div>
     <div class="rep-strip">${REP.map(r => `<a href="#/about" data-act="gorep" data-id="${r.k}" class="rep-mini"><b>${r.name}</b>${r.k === "seungmu" ? `<small>대표 레퍼토리</small>` : ""}</a>`).join("")}</div>
   </div></section>
+  ${(() => { const up = allSchedules().filter(x => !isPast(x)); return `<section class="sec"><div class="wrap">
+    <div class="sec-head"><div><h2>공연일정</h2><p>다가오는 무대</p></div><a class="btn ghost sm" href="#/schedule">전체 일정</a></div>
+    ${up.length ? `<div class="scheds">${up.slice(0, 3).map(x => schedCard(x, true)).join("")}</div>` : (S.loaded ? `<div class="empty">예정된 공연이 없어요. 새 공연 소식은 곧 알려 드릴게요.</div>` : "")}
+  </div></section>`; })()}
   <section class="sec"><div class="wrap">
     <div class="sec-head"><div><h2>공연 기록</h2><p>무대 하이라이트와 연습실의 시간</p></div><a class="btn ghost sm" href="#/portfolio/video">전체 영상</a></div>
     ${loading()}${S.videos.length ? `<div class="grid g3">${S.videos.slice(0,3).map(videoCard).join("")}</div>` : (S.loaded ? `<div class="empty">아직 등록된 영상이 없어요.</div>` : "")}
@@ -892,8 +999,8 @@ function vHome(){
     ${visibleProducts().length ? `<div class="grid g4">${visibleProducts().slice(0,4).map(productCard).join("")}</div>` : (S.loaded ? `<div class="empty">곧 상품이 공개됩니다.</div>` : "")}
   </div></section>
   <section class="sec"><div class="wrap">
-    <div class="sec-head"><div><h2>소식과 일정</h2></div><a class="btn ghost sm" href="#/artist">무용가 소개</a></div>
-    ${S.news.length ? `<div class="news-list">${S.news.slice(0,3).map(newsRow).join("")}</div>` : (S.loaded ? `<div class="empty">새 소식이 없어요.</div>` : "")}
+    <div class="sec-head"><div><h2>뉴스</h2><p>언론보도</p></div><a class="btn ghost sm" href="#/news">전체 보기</a></div>
+    ${pressList().length ? `<div class="news-list">${pressList().slice(0,3).map(newsRow).join("")}</div>` : (S.loaded ? `<div class="empty">새 소식이 없어요.</div>` : "")}
   </div></section>
   <section class="sec"><div class="wrap story">
     <h2>공연, 워크숍, 협업 문의</h2>
@@ -1239,16 +1346,18 @@ function vNews(id){
   if (id){
     const n = S.news.find(x => x.id === id);
     if (!n) return `<div class="wrap done"><h1>${S.loaded ? "글을 찾을 수 없어요" : "불러오는 중…"}</h1><a class="btn ghost" href="#/news">목록으로</a></div>`;
-    return `<div class="wrap"><article class="article"><a href="#/news" class="muted" style="font-size:.88rem">소식 목록</a>
+    if (n.type === "일정"){ location.replace("#/schedule/" + encodeURIComponent("n-" + n.id)); return ""; }
+    return `<div class="wrap"><article class="article"><a href="#/news" class="muted" style="font-size:.88rem">주요소식 목록</a>
       <div style="margin-top:20px"><span class="nt" style="color:var(--kasa);font-size:.88rem">${esc(n.type || "")}</span></div><h1>${esc(n.title)}</h1>
       <div class="meta">${fmtDate(n.date)}${n.source ? `, ${esc(n.source)}` : ""}${n.venue ? `, ${esc(n.venue)}` : ""}</div>
       ${n.image ? `<img src="${blob(n.image)}" alt="">` : ""}<div class="body">${paras(n.body || n.summary)}</div>
       ${n.link ? `<p><a class="btn ghost sm" href="${esc(n.link)}" target="_blank" rel="noopener">원문 보기</a></p>` : ""}</article></div>`;
   }
-  const types = ["전체","일정","언론 보도","인터뷰","평론","칼럼"];
-  const list = S.newsType === "전체" ? S.news : S.news.filter(n => n.type === S.newsType);
-  return `<div class="wrap page-head"><h1>News</h1><p>공연 일정, 언론 보도와 인터뷰, 평론, 그리고 무용 칼럼.</p></div>
-  <div class="wrap" style="padding-bottom:80px"><div class="tabs">${types.map(t => `<button class="${S.newsType === t ? "on" : ""}" data-act="ntype" data-v="${t}">${t}</button>`).join("")}</div>
+  const types = ["전체","언론 보도","인터뷰","평론","칼럼"];
+  const nt = types.includes(S.newsType) ? S.newsType : "전체";
+  const list = nt === "전체" ? pressList() : pressList().filter(n => n.type === nt);
+  return `<div class="wrap page-head"><h1>주요소식 News</h1><p>언론 보도와 인터뷰, 평론, 그리고 무용 칼럼.</p></div>
+  <div class="wrap" style="padding-bottom:80px">${newsTabs("press")}<div class="tabs subtabs">${types.map(t => `<button class="${nt === t ? "on" : ""}" data-act="ntype" data-v="${t}">${t}</button>`).join("")}</div>
   ${loading()}${list.length ? `<div class="news-list">${list.map(newsRow).join("")}</div>` : (S.loaded ? `<div class="empty">이 분류의 글이 아직 없어요.</div>` : "")}</div>`;
 }
 
@@ -1310,6 +1419,16 @@ const SCHEMA = {
     {k:"title",l:"작품, 프로젝트명",req:1,wide:1},{k:"year",l:"연도",req:1},{k:"genre",l:"분야",t:"select",opts:["전통춤 기반 창작","미디어아트","실용음악","패션","기타 협업"]},
     {k:"partners",l:"함께한 아티스트, 기관",wide:1},{k:"description",l:"소개",t:"textarea",wide:1},{k:"link",l:"관련 링크",wide:1},{k:"image",l:"대표 이미지",t:"image",wide:1}],
     sub: x => `${x.year || ""}, ${x.genre || ""}`, thumb: x => x.image },
+  schedules: { label: "공연일정", fields: [
+    {k:"title",l:"공연명",req:1,wide:1},
+    {k:"date",l:"공연일",t:"date",req:1},{k:"time",l:"시작 시간",t:"time",hint:"예: 19:30. 비워 두면 날짜만 표시돼요."},
+    {k:"endDate",l:"마지막 공연일 (여러 날 공연일 때)",t:"date",hint:"하루 공연이면 비워 두세요."},
+    {k:"venue",l:"장소",req:1,hint:"예: 국립국악원 우면당"},{k:"address",l:"장소 주소",wide:1,hint:"예: 서울특별시 서초구 남부순환로 2364. 구글 검색의 공연 정보에 쓰여요."},
+    {k:"summary",l:"주요 내용",t:"textarea",rows:6,wide:1,hint:"공연 소개, 출연, 프로그램 등. 빈 줄로 문단을 나눠요."},
+    {k:"price",l:"관람료",hint:"예: 전석 30,000원, 무료"},
+    {k:"ticketName",l:"예매처 이름",hint:"예: 인터파크 티켓, 국립국악원"},{k:"ticketUrl",l:"예매 링크",wide:1,hint:"https://로 시작하는 예매 페이지 주소"},
+    {k:"poster",l:"포스터 이미지",t:"image",wide:1,hint:"세로형 포스터(예: 1080 × 1528px)를 권해요. 검색 결과와 공유 미리보기에도 쓰여요."}],
+    sub: x => `${schedWhen(x)}, ${x.venue || ""}${isPast(x) ? ", 지난 공연" : ""}`, thumb: x => x.poster },
   popups: { label: "팝업", fields: [
     {k:"title",l:"관리용 이름",req:1,wide:1,hint:"관리자만 보는 이름이에요. 예: 11월 정기공연 안내"},
     {k:"start",l:"게시 시작일",t:"date",req:1,hint:"이 날 0시(한국 시간)부터 보여요."},{k:"end",l:"게시 종료일",t:"date",req:1,hint:"이 날 밤 12시(한국 시간)까지 보이고 자동으로 내려가요."},
@@ -1330,9 +1449,9 @@ const SCHEMA = {
     {k:"repertoire",l:"레퍼토리",t:"select",opts:["승무","살풀이춤","태평무","화랭이춤","검무","소고춤","창작, 협업","기타"]},
     {k:"description",l:"한 줄 설명",t:"textarea",rows:2,wide:1},{k:"link",l:"관련 링크 (기사, 영상, 팸플릿)",wide:1},{k:"image",l:"대표 이미지",t:"image",wide:1}],
     sub: x => `${fmtDate(x.date)}${x.venue ? ", " + x.venue : ""}${x.highlight ? ", 주요 공연" : ""}`, thumb: x => x.image },
-  news: { label: "소식", fields: [
-    {k:"title",l:"제목",req:1,wide:1},{k:"type",l:"분류",t:"select",opts:["일정","언론 보도","인터뷰","평론","칼럼"],req:1},{k:"date",l:"날짜",t:"date",req:1,hint:"일정이면 공연 날짜를 넣어 주세요."},
-    {k:"source",l:"매체, 출처"},{k:"venue",l:"장소 (일정)"},{k:"summary",l:"요약",t:"textarea",rows:2,wide:1},{k:"body",l:"본문",t:"textarea",rows:10,wide:1,hint:"빈 줄로 문단을 나눠요."},
+  news: { label: "주요소식(언론)", fields: [
+    {k:"title",l:"제목",req:1,wide:1},{k:"type",l:"분류",t:"select",opts:["언론 보도","인터뷰","평론","칼럼","일정"],req:1,hint:"공연 일정은 '공연일정' 메뉴에서 등록해 주세요. 여기의 '일정'은 예전에 등록한 글을 위해 남겨 둔 분류예요."},{k:"date",l:"날짜",t:"date",req:1},
+    {k:"source",l:"매체, 출처"},{k:"summary",l:"요약",t:"textarea",rows:2,wide:1},{k:"body",l:"본문",t:"textarea",rows:10,wide:1,hint:"빈 줄로 문단을 나눠요."},
     {k:"link",l:"원문 링크",wide:1},{k:"image",l:"대표 이미지",t:"image",wide:1}],
     sub: x => `${x.type || ""}, ${fmtDate(x.date)}`, thumb: x => x.image }
 };
@@ -1397,7 +1516,7 @@ function fieldHtml(f, d, key){
       ${(f.t === "images" || !ids.length) ? `<label class="upl">${S.uploading === f.k ? "올리는 중…" : "이미지<br>추가"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" ${f.t === "images" ? "multiple" : ""} data-upload="${f.k}" data-multi="${f.t === "images" ? 1 : 0}"></label>` : ""}</div>`;
   } else if (f.t === "textarea") inp = `<textarea id="${id}" name="${f.k}" rows="${f.rows || 5}" ${req}>${esc(v)}</textarea>`;
   else if (f.t === "select") inp = `<select id="${id}" name="${f.k}" ${req}><option value="">선택</option>${f.opts.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
-  else inp = `<input id="${id}" name="${f.k}" type="${f.t === "number" ? "number" : f.t === "date" ? "date" : "text"}" ${f.t === "number" ? 'min="0" step="1" inputmode="numeric"' : ""} value="${esc(v)}" ${req} ${f.list ? `list="${id}-l"` : ""}>${f.list ? `<datalist id="${id}-l">${f.list.map(o => `<option value="${esc(o)}">`).join("")}</datalist>` : ""}`;
+  else inp = `<input id="${id}" name="${f.k}" type="${f.t === "number" ? "number" : f.t === "date" ? "date" : f.t === "time" ? "time" : "text"}" ${f.t === "number" ? 'min="0" step="1" inputmode="numeric"' : ""} value="${esc(v)}" ${req} ${f.list ? `list="${id}-l"` : ""}>${f.list ? `<datalist id="${id}-l">${f.list.map(o => `<option value="${esc(o)}">`).join("")}</datalist>` : ""}`;
   return `<div class="fld ${f.wide ? "wide" : ""}"><label for="${id}">${esc(f.l)}${f.req ? " <i>*</i>" : ""}</label>${inp}${f.hint ? `<p class="hint">${esc(f.hint)}</p>` : ""}</div>`;
 }
 
@@ -1663,10 +1782,11 @@ function vAdmin(tab){
   tab = tab || "orders";
   const newOrders = S.allOrders.filter(o => o.status === "입금대기").length;
   const newInq = S.inquiries.filter(q => q.status === "새 문의").length;
-  const nav = [["orders","주문",newOrders],["stats","방문 통계"],["products","상품"],["store","스토어 설정"],["marketing","마케팅DB"],["terms","약관 관리"],["inquiries","문의",newInq],["slides","메인 슬라이드"],["popups","팝업 관리"],["profile","무용가 정보"],["performances","공연 기록"],["news","소식, 언론"],["videos","영상"],["gallery","갤러리"],["projects","프로젝트"],["footer","풋터 관리"],["meta","메타 태그"],["account","보안, 계정"]];
+  const nav = [["orders","주문",newOrders],["stats","방문 통계"],["products","상품"],["store","스토어 설정"],["marketing","마케팅DB"],["terms","약관 관리"],["inquiries","문의",newInq],["slides","메인 슬라이드"],["popups","팝업 관리"],["profile","무용가 정보"],["performances","공연 기록"],["schedules","공연일정"],["news","주요소식(언론)"],["videos","영상"],["gallery","갤러리"],["projects","프로젝트"],["footer","풋터 관리"],["meta","메타 태그"],["account","보안, 계정"]];
   let body;
   if (tab === "orders") body = adminOrders();
   else if (tab === "stats") body = adminStats();
+  else if (tab === "schedules" && !(S.edit && S.edit.col === "schedules")) body = adminCollection("schedules") + schedSeoBox();
   else if (tab === "terms") body = docForm("terms", "약관 관리", "손님에게 보이는 약관을 한곳에서 관리해요. 개인정보처리방침은 풋터의 '개인정보처리방침' 페이지와 주문서, 문의 양식의 '내용 보기'에 연결돼요. 상품별 구매 약관(필수)은 각 상품 설정에서 따로 적어요.");
   else if (tab === "footer") body = docForm("footer", "풋터 관리", "모든 페이지 맨 아래에 보이는 사업자 정보와 저작권 안내를 관리해요.");
   else if (tab === "slides" && !(S.edit && S.edit.col === "slides")) body = `<div class="brandbox">${docForm("brand", "홈페이지 제목과 파비콘", "")}</div>` + adminCollection("slides");
@@ -1690,7 +1810,7 @@ function stockTable(x){
 }
 /* 메뉴 키 → 사람이 읽는 이름 */
 function pageLabel(k){
-  const fixed = {home: "홈", about: "About (레퍼토리)", artist: "Artist (무용가)", store: "Store (상품 목록)", cart: "장바구니", checkout: "주문서", order: "주문 완료", orders: "주문 조회", news: "소식", privacy: "개인정보처리방침", sources: "자료출처",
+  const fixed = {home: "홈", about: "About (레퍼토리)", artist: "Artist (무용가)", store: "Store (상품 목록)", cart: "장바구니", checkout: "주문서", order: "주문 완료", orders: "주문 조회", news: "주요소식(언론)", schedule: "공연일정", privacy: "개인정보처리방침", sources: "자료출처",
     portfolio_video: "Portfolio 영상", portfolio_gallery: "Portfolio 갤러리", portfolio_projects: "Portfolio 프로젝트", contact_performance: "Contact 공연·워크숍", contact_business: "Contact 협업", contact_store: "Contact 스토어 문의"};
   if (fixed[k]) return fixed[k];
   if (k.startsWith("product:")){ const p = S.products.find(x => sKey(x.id) === k.slice(8)); return "상품: " + (p ? p.name : k.slice(8)); }
@@ -1742,6 +1862,13 @@ async function exportStats(){
   window.XLSX.utils.book_append_sheet(wb, sheet([["유입 경로","방문 수"], ...sumMaps(st.days, "refs").map(([k, v]) => [refLabel(k), v])], [30, 10]), "유입경로");
   window.XLSX.utils.book_append_sheet(wb, sheet([["메뉴","조회 수"], ...sumMaps(st.days, "paths").map(([k, v]) => [pageLabel(k), v])], [34, 10]), "메뉴별");
   window.XLSX.writeFile(wb, `방문통계_${st.n}일_${stampNow()}.xlsx`);
+}
+function schedSeoBox(){
+  const code = seoEventsCode(), n = allSchedules().filter(x => !isPast(x)).length;
+  return `<div class="fieldset" style="margin-top:36px"><h3>검색 노출용 코드</h3>
+    <p class="muted" style="font-size:.9rem">구글은 사이트를 열어 공연 정보를 자동으로 읽어 가요. <b>네이버는 index.html 파일 글자만 읽기 때문에</b>, 공연을 등록하거나 바꾼 뒤에는 아래 코드를 index.html에 붙여 넣어야 검색에 반영돼요. (지금 다가오는 공연 ${n}건)</p>
+    <textarea class="codebox" readonly aria-label="검색 노출용 코드" onfocus="this.select()">${esc(code)}</textarea>
+    <p class="hint" style="margin-top:8px">상자를 누르면 전체가 선택돼요. GitHub의 docs/index.html을 연필 아이콘으로 열고, 위쪽의 <code>▼ 공연일정 검색 노출 영역</code> 줄과 <code>▲ … 끝 ▲</code> 줄 사이의 내용을 이 코드로 바꿔 Commit하세요. 어렵다면 이 코드를 Claude에게 보내 주세요.</p></div>`;
 }
 function adminCollection(col){
   const sch = SCHEMA[col];
@@ -2025,6 +2152,7 @@ function view(){
     case "order": return vOrderDone(a);
     case "orders": return vOrders();
     case "news": return vNews(a);
+    case "schedule": return vSchedule(a);
     case "contact": return vContact(a);
     case "admin": return vAdmin(a);
     default: return vHome();
@@ -2051,8 +2179,10 @@ function vPopups(){
       <div class="pop-foot"><button data-act="pop-today" data-id="${esc(x.id)}">오늘 하루 열지 않기</button><button data-act="pop-close" data-id="${esc(x.id)}">닫기</button></div>
     </section>`).join("")}</div>`;
 }
+let ldSig = "";
 function render(){
   S.pending = false;
+  const sig = JSON.stringify([S.schedules, (S.news || []).filter(n => n.type === "일정").length, S.profile.name]); if (sig !== ldSig){ ldSig = sig; applyEventsLD(); }
   $("#hdr").innerHTML = vHeader();
   $("#main").innerHTML = view();
   $("#ftr").innerHTML = vFooter();
@@ -2553,6 +2683,7 @@ function expectedTotal(o){
 
 /* ---------- data ---------- */
 const SORTERS = {
+  schedules: (a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.time || "").localeCompare(String(b.time || "")),
   popups: (a, b) => (Number(a.order ?? 999) - Number(b.order ?? 999)) || ((a.createdAt || 0) - (b.createdAt || 0)),
   products: (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
   videos: (a, b) => String(b.date || "").localeCompare(String(a.date || "")),
@@ -2593,6 +2724,7 @@ async function boot(){
   setTimeout(() => { if (!S.loaded){ S.loaded = true; softRender(); } }, 6000);
 }
 lastRoute = location.hash;
+document.getElementById("seo-static")?.remove();
 gaInit(); trackView();
 restartSlides();
 boot();
