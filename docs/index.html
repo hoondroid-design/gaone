@@ -1945,8 +1945,9 @@ async function loadStats(n){
   S.statsN = n; S.statsBusy = true; render();
   const days = statDays(n);
   try {
-    const docs = await Promise.all(days.map(d => FS.doc("statsDaily/" + d).get().then(x => [d, x.exists ? x.data() : null]).catch(() => [d, null])));
-    S.stats = {n, days: docs};
+    let denied = false;
+    const docs = await Promise.all(days.map(d => FS.doc("statsDaily/" + d).get().then(x => [d, x.exists ? x.data() : null]).catch(e => { if (e && e.code === "permission-denied") denied = true; return [d, null]; })));
+    S.stats = {n, days: docs, denied};
   } catch(e){ toast(failMsg(e, "통계를 불러오지 못했어요.")); }
   S.statsBusy = false; render();
 }
@@ -1960,7 +1961,8 @@ function adminStats(){
   const today = days[days.length - 1][1] || {}, max = Math.max(1, ...days.map(([, d]) => (d && d.pv) || 0));
   const refs = sumMaps(days, "refs"), paths = sumMaps(days, "paths"), refT = refs.reduce((a, r) => a + r[1], 0) || 1, pathT = paths.reduce((a, r) => a + r[1], 0) || 1;
   const bar = (v, t) => `<span class="sbar"><i style="width:${Math.round(v / t * 100)}%"></i></span>`;
-  return head + `
+  const warn = st.denied ? `<div class="notice" style="border-left-color:var(--kasa)"><b>방문 통계를 읽을 권한이 없어요.</b> Firebase 콘솔 → Firestore → (default) → 규칙에 방문 통계(statsDaily) 항목이 없는 상태예요. 최신 firestore.rules를 게시하면 그때부터 방문이 기록되고 여기에 보여요.</div>` : (pv === 0 ? `<div class="notice">아직 기록된 방문이 없어요. 관리자로 로그인한 브라우저의 방문은 세지 않으니, 휴대폰이나 시크릿 창으로 사이트를 열어 본 뒤 '새로고침'을 눌러 확인해 보세요.</div>` : "");
+  return head + warn + `
   <div class="scards"><div><span>오늘 방문자</span><b>${today.uv || 0}</b></div><div><span>오늘 조회</span><b>${today.pv || 0}</b></div><div><span>${st.n}일 방문자</span><b>${uv.toLocaleString("ko-KR")}</b></div><div><span>${st.n}일 조회</span><b>${pv.toLocaleString("ko-KR")}</b></div></div>
   <section class="sbox"><h3>일별 방문자와 조회 수</h3>
     <div class="schart" role="img" aria-label="일별 조회 수 막대 그래프">${days.map(([d, x]) => `<div class="scol" title="${d} 방문자 ${(x && x.uv) || 0}, 조회 ${(x && x.pv) || 0}"><i style="height:${Math.round(((x && x.pv) || 0) / max * 100)}%"></i><em style="height:${Math.round(((x && x.uv) || 0) / max * 100)}%"></em></div>`).join("")}</div>
@@ -2335,7 +2337,7 @@ window.addEventListener("hashchange", () => {
 /* ---------- 방문 통계 ----------
    방법 1: Firebase에 하루 단위 집계(statsDaily/YYYY-MM-DD)만 저장. 개인 식별 정보, 쿠키 없음.
    방법 2: 구글 애널리틱스(GA4). config.js의 measurementId가 있으면 자동 연결. */
-const BOT_RE = /bot|crawl|spider|slurp|bingpreview|headless|lighthouse|facebookexternalhit|kakaotalk-scrap|yeti|daum/i;
+const BOT_RE = /bot|crawl|spider|slurp|bingpreview|headless|lighthouse|facebookexternalhit|kakaotalk-scrap|yeti|daumoa|googleother|adsbot/i;
 const isBot = () => navigator.webdriver || BOT_RE.test(navigator.userAgent || "");
 const sKey = v => String(v || "").toLowerCase().replace(/[^a-z0-9가-힣_:.-]/g, "_").slice(0, 60);
 function pageKey(){
