@@ -375,6 +375,12 @@ p{margin:0 0 1em}
 .prdel{border:1px solid var(--line);background:none;color:var(--muted);height:38px;cursor:pointer}
 .prdel:hover{color:var(--kasa);border-color:var(--kasa)}
 @media (max-width:560px){.prrow{grid-template-columns:64px 1fr 32px}.prrow input[data-pr-k=note]{grid-column:2/3;grid-row:2}.prrow .prdel{grid-row:1/3;grid-column:3;height:100%}.prhead span:nth-child(3){display:none}}
+.adm-pill{display:inline-flex;align-items:center;border:1px solid var(--kasa);border-radius:999px;overflow:hidden;font-size:.78rem;margin-left:14px;white-space:nowrap}
+.adm-pill a{padding:6px 10px;color:var(--kasa);text-decoration:none;font-weight:600}
+.adm-pill button{padding:6px 10px;border:0;border-left:1px solid var(--kasa);background:var(--kasa);color:#fff;cursor:pointer;font:inherit;font-weight:600}
+.adm-pill button:hover{filter:brightness(1.1)}
+@media (max-width:900px){.adm-pill{margin-left:0;margin-right:8px}.adm-pill a{padding:6px 8px}}
+@media (max-width:380px){.adm-pill a{display:none}.adm-pill button{border-left:0}}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -879,7 +885,7 @@ function vHeader(){
   return `<div class="wrap hdr-in">
     <a class="brand" href="#/"><span>${esc(S.profile.siteTitle || S.profile.name || "무용가")}</span></a>
     <nav class="nav ${S.menuOpen ? "open" : ""}" aria-label="주 메뉴">${items.map(([k, en, ko]) => `<a href="#/${k}" class="${r === k || (k === "store" && shop.includes(r)) || (k === "news" && r === "schedule") ? "on" : ""}" ${r === k ? 'aria-current="page"' : ""}><span>${en}</span><small>${ko}</small></a>`).join("")}</nav>
-    <div class="hdr-tools"><button class="menu-btn" data-act="menu" aria-expanded="${S.menuOpen}">메뉴</button></div>
+    <div class="hdr-tools">${S.authed ? `<span class="adm-pill"><a href="#/admin" title="관리자 화면으로">관리자 모드</a><button type="button" data-act="logout">로그아웃</button></span>` : ""}<button class="menu-btn" data-act="menu" aria-expanded="${S.menuOpen}">메뉴</button></div>
   </div>`;
 }
 
@@ -1032,8 +1038,15 @@ ${items}
 </section>`;
 }
 
+/* 본문 앞부분을 공백 제외 약 100자로 자동 요약 (본문이 없으면 예전에 입력한 요약 사용) */
+function newsSummary(n, limit = 100){
+  const src = String(n.body || n.summary || "").replace(/\s+/g, " ").trim(); if (!src) return "";
+  let cnt = 0, out = "";
+  for (const ch of src){ if (ch !== " ") cnt++; if (cnt > limit) return out.trim() + "…"; out += ch; }
+  return out;
+}
 function newsRow(n){
-  return `<a class="nrow" href="#/news/${encodeURIComponent(n.id)}"><span class="nd">${fmtDate(n.date)}</span><span class="nt">${esc(n.type || "")}</span><div><h3>${esc(n.title)}</h3>${n.summary ? `<p>${esc(n.summary)}</p>` : ""}</div></a>`;
+  return `<a class="nrow" href="#/news/${encodeURIComponent(n.id)}"><span class="nd">${fmtDate(n.date)}</span><span class="nt">${esc(n.type || "")}</span><div><h3>${esc(n.title)}</h3>${newsSummary(n) ? `<p>${esc(newsSummary(n))}</p>` : ""}</div></a>`;
 }
 function loading(){ return S.loaded ? "" : `<p class="muted">불러오는 중…</p>`; }
 function offlineNote(){ return !S.online ? `<div class="wrap"><div class="notice">사이트 설정(config.js)이 아직 완료되지 않아 콘텐츠를 불러올 수 없어요. README의 2단계를 확인해 주세요.</div></div>` : ""; }
@@ -1223,8 +1236,7 @@ function vArtist(){
       ${p.nameEn ? `<p class="en">${esc(p.nameEn)}</p>` : ""}
       ${p.title ? `<span class="badge">${esc(p.title)}</span>` : ""}
       ${awards ? `<div class="hero-awards"><h2>수상 경력</h2><ul class="cv-list">${awards}</ul></div>` : ""}
-      ${p.philosophy ? `<p class="drum-quote" style="margin-top:28px;font-size:1.25rem">${esc(p.philosophy).replace(/\n/g, "<br>")}</p>` : ""}
-      ${p.lineage ? `<div class="prose" style="margin-top:20px"><h3 style="font-size:1rem;margin-bottom:8px">사승 관계</h3>${paras(p.lineage)}</div>` : ""}
+
     </div>
   </section>
   ${cv ? `<div class="sec"><div class="wrap">${cv}</div></div>` : ""}
@@ -1547,7 +1559,7 @@ const SCHEMA = {
     sub: x => `${fmtDate(x.date)}${x.venue ? ", " + x.venue : ""}${x.highlight ? ", 주요 공연" : ""}`, thumb: x => x.image },
   news: { label: "언론보도", fields: [
     {k:"title",l:"제목",req:1,wide:1},{k:"type",l:"분류",t:"select",opts:["언론 보도","인터뷰","평론","칼럼","일정"],req:1,hint:"공연 일정은 '공연일정' 메뉴에서 등록해 주세요. 여기의 '일정'은 예전에 등록한 글을 위해 남겨 둔 분류예요."},{k:"date",l:"날짜",t:"date",req:1},
-    {k:"source",l:"매체, 출처"},{k:"summary",l:"요약",t:"textarea",rows:2,wide:1},{k:"body",l:"본문",t:"textarea",rows:10,wide:1,hint:"빈 줄로 문단을 나눠요."},
+    {k:"source",l:"매체, 출처"},{k:"body",l:"본문",t:"textarea",rows:10,wide:1,hint:"빈 줄로 문단을 나눠요. 목록과 메인페이지에는 본문 앞부분이 100자(공백 제외) 정도로 자동 요약되어 보여요."},
     {k:"link",l:"원문 링크",wide:1},{k:"image",l:"대표 이미지",t:"image",wide:1}],
     sub: x => `${x.type || ""}, ${fmtDate(x.date)}`, thumb: x => x.image }
 };
@@ -1897,7 +1909,7 @@ function adminGuide(){
   const rows = [
     ["Home 메인페이지", "맨 위 큰 문구, 사진 슬라이드, 팝업", `${L("hero", "첫 화면 문구")} · ${L("slides", "메인 슬라이드")} · ${L("popups", "팝업")}`],
     ["About 레퍼토리", "여섯 가지 춤 소개 카드 아래 '나의 ○○' 설명", L("repertoire", "레퍼토리 설명")],
-    ["Artist 아티스트", "프로필 사진, 철학, 사승 관계, 이력, 수상, 지도 경력, 공연 레퍼런스", `${L("artistProfile", "프로필 · 이력 · 수상")} · ${L("performances", "공연 레퍼런스")}`],
+    ["Artist 아티스트", "프로필 사진, 이력, 수상, 지도 경력, 공연 레퍼런스", `${L("artistProfile", "프로필 · 이력 · 수상")} · ${L("performances", "공연 레퍼런스")}`],
     ["Portfolio 포트폴리오", "공연 영상, 사진, 협업 프로젝트", `${L("videos", "영상")} · ${L("gallery", "갤러리")} · ${L("projects", "프로젝트")}`],
     ["News 주요소식", "공연일정(메인페이지에도 표시), 언론보도(메인페이지 '뉴스'에도 표시)", `${L("schedules", "공연일정")} · ${L("news", "언론보도")}`],
     ["Store 스토어", "상품, 사이즈별 재고, 배송비, 입금 계좌, 주문 처리", `${L("products", "상품 · 재고")} · ${L("store", "배송비 · 입금 계좌")} · ${L("orders", "주문")}`],
@@ -2824,7 +2836,7 @@ const pickF = keys => keys.map(k => PROFILE_FIELDS.find(f => f.k === k)).filter(
 const DOC_FORMS = {profile: PROFILE_FIELDS, footer: FOOTER_FIELDS, terms: TERMS_FIELDS, brand: BRAND_FIELDS,
   hero: pickF(["heroText"]),
   basic: pickF(["name", "nameEn", "title", "email", "phone", "youtube", "instagram"]),
-  artistProfile: pickF(["photo", "philosophy", "lineage", "career", "awards", "teaching"]),
+  artistProfile: pickF(["photo", "career", "awards", "teaching"]),
   repertoire: pickF(["rep_seungmu", "rep_salpuri", "rep_taepyeong", "rep_hwarang", "rep_geommu", "rep_sogo"])};
 function docForm(key, title, intro){
   const d = draft(key, S.profile);
