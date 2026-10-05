@@ -975,7 +975,7 @@ function vSchedule(id){
         ${x.summary ? `<div class="prose" style="margin-top:24px">${paras(x.summary)}</div>` : ""}</div></div></article></div>`;
   }
   const up = all.filter(x => !isPast(x)), past = all.filter(isPast).reverse();
-  return `<div class="wrap page-head"><h1>주요소식 News</h1><p>공연일정과 언론보도를 모았습니다.</p></div>
+  return `<div class="wrap page-head"><h1>News</h1><p>공연중, 공연예정, 지난 공연 일정</p></div>
   <div class="wrap" style="padding-bottom:80px">${newsTabs("schedule")}
     <h2 class="sub-h">공연중 · 공연예정</h2>${up.length ? `<div class="scheds">${up.map(x => schedCard(x, true)).join("")}</div>` : (S.loaded ? `<div class="empty">예정된 공연이 없어요.</div>` : loading())}
     ${past.length ? `<h2 class="sub-h" style="margin-top:48px">공연종료</h2><div class="scheds">${past.map(x => schedCard(x, false)).join("")}</div>` : ""}
@@ -1064,11 +1064,11 @@ function vHome(){
     <div class="rep-strip">${REP.map(r => `<a href="#/about" data-act="gorep" data-id="${r.k}" class="rep-mini"><b>${r.name}</b>${r.k === "seungmu" ? `<small>대표 레퍼토리</small>` : ""}</a>`).join("")}</div>
   </div></section>
   <section class="sec"><div class="wrap">
-    <div class="sec-head"><div><h2>공연 기록</h2><p>무대 하이라이트와 연습실의 시간</p></div><a class="btn ghost sm" href="#/portfolio/video">전체 영상</a></div>
+    <div class="sec-head"><div><h2>아카이브</h2><p>주요 공연의 하이라이트</p></div><a class="btn ghost sm" href="#/portfolio/video">전체 영상</a></div>
     ${loading()}${S.videos.length ? `<div class="grid g3">${S.videos.slice(0,3).map(videoCard).join("")}</div>` : (S.loaded ? `<div class="empty">아직 등록된 영상이 없어요.</div>` : "")}
   </div></section>
   <section class="sec"><div class="wrap">
-    <div class="sec-head"><div><h2>스토어</h2><p>전통춤의 선과 색을 일상의 물건으로</p></div><a class="btn ghost sm" href="#/store">스토어 가기</a></div>
+    <div class="sec-head"><div><h2>스토어</h2><p>전통춤의 선과 색을 일상의 순간으로</p></div><a class="btn ghost sm" href="#/store">스토어 가기</a></div>
     ${visibleProducts().length ? `<div class="grid g4">${visibleProducts().slice(0,4).map(productCard).join("")}</div>` : (S.loaded ? `<div class="empty">곧 상품이 공개됩니다.</div>` : "")}
   </div></section>
   <section class="sec"><div class="wrap">
@@ -1206,7 +1206,7 @@ function vArtist(){
   <section class="sec"><div class="wrap">
     <div class="sec-head"><div><h2>공연 레퍼런스</h2><p>무대에 오른 기록을 연도별로 정리했습니다.</p></div><a class="btn ghost sm" href="#/portfolio/video">공연 영상</a></div>
     ${key.length ? `<div class="grid g3" style="margin-bottom:48px">${key.map(x => `<article class="keyperf">${x.image ? `<div class="pimg" style="aspect-ratio:4/3"><img src="${blob(x.image)}" alt="${esc(x.title)}" loading="lazy"></div>` : ""}<p class="muted" style="font-size:.85rem;margin:12px 0 4px">${fmtDate(x.date)}${x.venue ? `, ${esc(x.venue)}` : ""}</p><h3>${esc(x.title)}</h3>${x.role || x.repertoire ? `<p class="rep-st" style="margin-top:6px">${esc([x.role, x.repertoire].filter(Boolean).join(", "))}</p>` : ""}${x.description ? `<p style="font-size:.93rem">${esc(x.description)}</p>` : ""}</article>`).join("")}</div>` : ""}
-    ${perf.length ? years.map(y => `<div class="perf-year"><h3>${y}</h3><ul class="perf-list">${perf.filter(x => String(x.date || "").startsWith(y)).map(perfRow).join("")}</ul></div>`).join("") : (S.loaded ? `<div class="empty">등록된 공연 기록이 없어요.</div>` : loading())}
+    ${perf.length ? years.map(y => `<div class="perf-year"><h3>${y}</h3><ul class="perf-list">${perf.filter(x => String(x.date || "").startsWith(y)).map(perfRow).join("")}</ul></div>`).join("") : (S.loaded ? `<div class="empty">등록된 공연 레퍼런스가 없어요.</div>` : loading())}
   </div></section>`;
 }
 
@@ -1231,7 +1231,7 @@ function vStore(){
   let list = all.slice();
   if (S.storeSort === "low") list.sort((a, b) => unit(a) - unit(b));
   else if (S.storeSort === "high") list.sort((a, b) => unit(b) - unit(a));
-  return `<div class="wrap page-head"><h1>Store</h1><p>전통춤의 미학을 지금의 생활로. 장삼의 곡선, 수건의 흰빛, 북의 리듬을 담은 물건들입니다.</p></div>
+  return `<div class="wrap page-head"><h1>Store</h1><p>전통춤의 선과 색을 일상의 순간으로</p></div>
   <div class="wrap" style="padding-bottom:80px">${offlineNote()}
     <div class="store-bar"><span class="muted">${list.length}개의 상품</span><a href="#/cart" class="cart-btn" style="margin-left:auto">장바구니 <b>${cartCount()}</b></a>
     <label><span class="sr">정렬</span><select class="sort" data-act-change="ssort"><option value="new" ${S.storeSort === "new" ? "selected" : ""}>신상품순</option><option value="low" ${S.storeSort === "low" ? "selected" : ""}>낮은 가격순</option><option value="high" ${S.storeSort === "high" ? "selected" : ""}>높은 가격순</option></select></label></div>
@@ -1427,7 +1427,7 @@ function vNews(id){
       ${n.link ? `<p><a class="btn ghost sm" href="${esc(n.link)}" target="_blank" rel="noopener">원문 보기</a></p>` : ""}</article></div>`;
   }
   const list = pressList();
-  return `<div class="wrap page-head"><h1>주요소식 News</h1><p>언론 보도와 인터뷰, 평론, 그리고 무용 칼럼.</p></div>
+  return `<div class="wrap page-head"><h1>News</h1><p>대외 언론 보도 내용과 인터뷰</p></div>
   <div class="wrap" style="padding-bottom:80px">${newsTabs("press")}${loading()}${list.length ? `<div class="news-list">${list.map(newsRow).join("")}</div>` : (S.loaded ? `<div class="empty">아직 등록된 언론보도가 없어요.</div>` : "")}</div>`;
 }
 
@@ -1801,7 +1801,7 @@ function adminAccount(){
   <dl class="kv" style="margin-top:20px"><dt>계정</dt><dd>${esc(u && u.email || "")}</dd><dt>2단계 인증</dt><dd>${S.mfaEnrolled ? "사용 중 (인증 앱)" : "사용 안 함"}</dd><dt>UID</dt><dd style="word-break:break-all">${esc(u && u.uid || "")}</dd></dl>
   <div class="btn-row"><button class="btn ghost sm" data-act="pw-reset-me">비밀번호 재설정 메일 받기</button></div>
   <div class="fieldset" style="margin-top:28px"><h3>견본 데이터</h3>
-  <p class="muted" style="font-size:.92rem">처음 시작할 때 Claude에서 만들던 견본(프로필, 공연 기록, 상품, 영상, 프로젝트, 메타 태그)을 한 번에 불러와요. 이미 입력한 같은 항목은 덮어써요.</p>
+  <p class="muted" style="font-size:.92rem">처음 시작할 때 Claude에서 만들던 견본(프로필, 공연 레퍼런스, 상품, 영상, 프로젝트, 메타 태그)을 한 번에 불러와요. 이미 입력한 같은 항목은 덮어써요.</p>
   <button class="btn ghost sm" data-act="seed" style="${S.confirmSeed ? "color:var(--kasa);border-color:var(--kasa)" : ""}" ${S.busy ? "disabled" : ""}>${S.confirmSeed ? "한 번 더 누르면 불러와요" : "견본 데이터 불러오기"}</button></div>
   <div class="fieldset" style="margin-top:28px"><h3>최근 관리자 접속, 열람 기록</h3>
   ${log.length ? `<div class="scroll-x"><table class="otable"><thead><tr><th>일시</th><th>내용</th><th>계정</th><th>브라우저</th></tr></thead><tbody>${log.map(l => `<tr><td>${fmtDT(l.t)}</td><td>${esc(l.action || "관리자 로그인")}</td><td>${esc(l.email || "")}</td><td class="muted" style="font-size:.8rem">${esc(l.ua)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">기록이 없어요.</p>`}
@@ -1882,7 +1882,7 @@ function adminGuide(){
   <div class="scards"><a href="#/admin/orders"><span>입금 대기 주문</span><b>${newOrders}</b></a><a href="#/admin/inquiries"><span>새 문의</span><b>${newInq}</b></a><a href="#/admin/schedules"><span>다가오는 공연</span><b>${upcoming}</b></a><a href="#/admin/popups"><span>게시 중 팝업</span><b>${livePop}</b></a></div>
   <section class="sbox"><h3>손님 화면의 메뉴별로 어디서 고치나요?</h3>
     <div class="scroll-x"><table class="guide-tbl"><thead><tr><th>손님 화면 메뉴</th><th>보이는 내용</th><th>편집하는 곳</th></tr></thead><tbody>${rows.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("")}</tbody></table></div>
-    <p class="hint" style="margin-top:10px">메인페이지의 공연일정, 공연 기록, 스토어, 뉴스 섹션은 각 메뉴의 내용을 미리보기로 보여 주는 것이라, 해당 메뉴에서 고치면 메인페이지에도 함께 바뀌어요. '사이트 전체'의 항목은 여러 페이지에 동시에 쓰이기 때문에 따로 모아 두었어요.</p>
+    <p class="hint" style="margin-top:10px">메인페이지의 공연일정, 아카이브, 스토어, 뉴스 섹션은 각 메뉴의 내용을 미리보기로 보여 주는 것이라, 해당 메뉴에서 고치면 메인페이지에도 함께 바뀌어요. '사이트 전체'의 항목은 여러 페이지에 동시에 쓰이기 때문에 따로 모아 두었어요.</p>
   </section>`;
 }
 function vAdmin(tab){
