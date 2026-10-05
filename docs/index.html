@@ -337,6 +337,32 @@ p{margin:0 0 1em}
 .sbadge.soon{color:var(--brass)}
 .sbadge.now{color:#fff;background:var(--kasa);border-color:var(--kasa)}
 .sbadge.end{color:var(--muted)}
+.rail-ctrl{display:flex;gap:8px;align-items:center}
+.rail-btn{width:38px;height:38px;border:1px solid var(--line);background:none;color:var(--ink);font-size:1.3rem;line-height:1;cursor:pointer;border-radius:999px}
+.rail-btn:hover:not(:disabled){border-color:var(--ink)}
+.rail-btn:disabled{opacity:.3;cursor:default}
+.sched-rail{display:grid;grid-auto-flow:column;grid-auto-columns:250px;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:12px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.sched-rail:focus-visible{outline:2px solid var(--kasa);outline-offset:4px}
+.rcard{scroll-snap-align:start;display:flex;flex-direction:column;gap:6px;min-width:0}
+.rcard-poster{position:relative;display:block;aspect-ratio:1/1.414;background:var(--surface);overflow:hidden;text-decoration:none;margin-bottom:6px}
+.rcard-poster img{width:100%;height:100%;object-fit:cover;transition:transform .4s}
+.rcard-poster:hover img{transform:scale(1.03)}
+.rcard-poster .sbadge{position:absolute;top:10px;left:10px;background:var(--paper)}
+.rcard-poster .sbadge.now{background:var(--kasa)}
+.rcard h3{font-size:1.05rem;margin:0}
+.rcard h3 a{text-decoration:none}
+.rcard .sched-when{margin:0;font-size:.85rem}
+.rcard .sched-venue{margin:0;font-size:.85rem}
+.rcard .btn{align-self:flex-start;margin-top:4px}
+.rcard.ended .rcard-poster img{filter:grayscale(.6) brightness(.75)}
+.rcard.ended h3,.rcard.ended .sched-when{opacity:.75}
+@media (max-width:560px){.sched-rail{grid-auto-columns:68%}.rail-btn{display:none}}
+.totop{position:fixed;z-index:44;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));width:56px;height:56px;border-radius:50%;border:1px solid var(--line);background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(6px);color:var(--ink);font-size:.72rem;font-weight:600;letter-spacing:.08em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1.1;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.45);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s,transform .2s,border-color .2s}
+.totop span{font-size:1rem}
+.totop.show{opacity:1;transform:none;pointer-events:auto}
+.totop:hover{border-color:var(--ink)}
+@media (max-width:560px){.totop{width:48px;height:48px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px))}}
+@media (prefers-reduced-motion:reduce){.totop{transition:none}}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -609,6 +635,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 48px;font-size:.88rem;col
 <footer id="ftr"></footer>
 <div id="modal"></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<button type="button" id="totop" class="totop" aria-label="맨 위로 이동" tabindex="-1"><span aria-hidden="true">↑</span>TOP</button>
 <!-- ▼ 공연일정 검색 노출 영역: 관리자 > 공연일정 > '검색 노출용 코드'로 만든 내용을 이 두 줄 사이에 붙여 넣으세요 ▼ -->
 <!-- ▲ 공연일정 검색 노출 영역 끝 ▲ -->
 
@@ -693,7 +720,7 @@ const FS = {
 
 /* ---------- state ---------- */
 const S = {
-  products: [], videos: [], gallery: [], projects: [], news: [], performances: [], popups: [], schedules: [], popClosed: {}, meta: {}, store: {}, keep: {}, lookup: null, lastOrder: null, slides: [], slide: 0, slidePaused: false, profile: {},
+  products: [], videos: [], gallery: [], projects: [], news: [], performances: [], popups: [], schedules: [], popClosed: {}, meta: {}, store: {}, keep: {}, lookup: null, lastOrder: null, slides: [], slide: 0, slidePaused: false,  profile: {},
   myOrders: [], allOrders: [], inquiries: [],
   db: null, uid: null, authUser: null, isAdmin: false, mfaOk: false, mfaEnrolled: false, authed: false, authStep: "login", mfaResolver: null, totpSecret: null, fails: 0, lockUntil: 0, adminStarted: false, online: CONFIGURED, loaded: false, canUpload: false,
   cart: loadCart(), drafts: {}, qty: {}, optSel: {}, pdImg: {}, edit: null, confirmDel: null,
@@ -913,6 +940,30 @@ function schedCard(x, big){
 }
 function newsTabs(on){ return `<div class="tabs"><a href="#/news" class="${on === "press" ? "on" : ""}">언론보도</a><a href="#/schedule" class="${on === "schedule" ? "on" : ""}">공연일정</a></div>`; }
 const pressList = () => (S.news || []).filter(n => n.type !== "일정");
+/* 메인페이지 공연일정: 공연중 → 공연예정(가까운 날짜 순) → 공연종료(최근 순) */
+function homeSchedules(){
+  const all = allSchedules(), rank = {"공연중": 0, "공연예정": 1, "공연종료": 2};
+  const live = all.filter(x => schedStatus(x) !== "공연종료");
+  const ended = all.filter(x => schedStatus(x) === "공연종료").sort((a, b) => String(b.endDate || b.date || "").localeCompare(String(a.endDate || a.date || "")));
+  return [...live.sort((a, b) => (rank[schedStatus(a)] - rank[schedStatus(b)]) || SORTERS.schedules(a, b)), ...ended].slice(0, 20);
+}
+function railCard(x){
+  const ext = /^https?:\/\//i.test(String(x.ticketUrl || "")), st = schedStatus(x);
+  return `<article class="rcard ${st === "공연종료" ? "ended" : ""}">
+    <a class="rcard-poster" href="#/schedule/${encodeURIComponent(x.id)}" aria-label="${esc(x.title)} 자세히">${x.poster ? `<img src="${blob(x.poster)}" alt="${esc(x.title)} 포스터" loading="lazy">` : `<span class="sched-noposter">${esc(x.title)}</span>`}${schedBadge(x)}</a>
+    <p class="sched-when">${esc(schedWhen(x))}</p>
+    <h3><a href="#/schedule/${encodeURIComponent(x.id)}">${esc(x.title)}</a></h3>
+    ${x.venue ? `<p class="sched-venue">${esc(x.venue)}</p>` : ""}
+    ${x.ticketUrl && ext && st !== "공연종료" ? `<a class="btn kasa sm" href="${esc(x.ticketUrl)}" target="_blank" rel="noopener">예매하기</a>` : ""}
+  </article>`;
+}
+function railButtons(){
+  const r = document.getElementById("sched-rail"); if (!r) return;
+  const max = r.scrollWidth - r.clientWidth - 2;
+  document.querySelectorAll("[data-act=rail]").forEach(b => { b.disabled = Number(b.dataset.d) < 0 ? r.scrollLeft <= 2 : r.scrollLeft >= max; });
+}
+document.addEventListener("scroll", e => { if (e.target && e.target.id === "sched-rail") railButtons(); }, true);
+window.addEventListener("resize", () => railButtons());
 function vSchedule(id){
   const all = allSchedules();
   if (id){
@@ -1000,7 +1051,7 @@ function vHome(){
     ${slides.map((x, i) => `<figure class="slide ${i === cur ? "on" : ""}" aria-roledescription="slide" aria-label="${i + 1} / ${slides.length}" ${i === cur ? "" : 'aria-hidden="true"'}><img src="${blob(x.image)}" alt="${esc(x.caption || "공연 사진")}" style="object-position:${pos[x.focus] || "50% 50%"}" ${i === 0 ? "" : 'loading="lazy"'}>${x.caption ? `<figcaption>${esc(x.caption)}</figcaption>` : ""}</figure>`).join("")}
     <div class="slide-shade" aria-hidden="true"></div>
     <div class="wrap slide-inner">${copy}</div>
-    ${slides.length > 1 ? `<div class="slide-ctrl"><button data-act="slide" data-d="-1" aria-label="이전 사진">이전</button><span class="slide-dots">${slides.map((_, i) => `<button data-act="slideto" data-i="${i}" class="${i === cur ? "on" : ""}" aria-label="${i + 1}번째 사진" ${i === cur ? 'aria-current="true"' : ""}></button>`).join("")}</span><button data-act="slide" data-d="1" aria-label="다음 사진">다음</button><button data-act="slidepause" aria-label="${S.slidePaused ? "자동 넘김 재생" : "자동 넘김 멈춤"}">${S.slidePaused ? "재생" : "멈춤"}</button></div>` : ""}
+    ${slides.length > 1 ? `<div class="slide-ctrl"><span class="slide-dots">${slides.map((_, i) => `<button data-act="slideto" data-i="${i}" class="${i === cur ? "on" : ""}" aria-label="${i + 1}번째 사진" ${i === cur ? 'aria-current="true"' : ""}></button>`).join("")}</span></div>` : ""}
   </section>` : "";
   const hero = slides.length ? "" : `<section class="wrap hero">
     ${copy}
@@ -1011,9 +1062,9 @@ function vHome(){
     <div class="sec-head"><div><h2>레퍼토리</h2><p>무대에 올리는 여섯 가지 춤</p></div><a class="btn ghost sm" href="#/about">자세히 보기</a></div>
     <div class="rep-strip">${REP.map(r => `<a href="#/about" data-act="gorep" data-id="${r.k}" class="rep-mini"><b>${r.name}</b>${r.k === "seungmu" ? `<small>대표 레퍼토리</small>` : ""}</a>`).join("")}</div>
   </div></section>
-  ${(() => { const up = allSchedules().filter(x => !isPast(x)); return `<section class="sec"><div class="wrap">
-    <div class="sec-head"><div><h2>공연일정</h2><p>다가오는 무대</p></div><a class="btn ghost sm" href="#/schedule">전체 일정</a></div>
-    ${up.length ? `<div class="scheds">${up.slice(0, 3).map(x => schedCard(x, true)).join("")}</div>` : (S.loaded ? `<div class="empty">예정된 공연이 없어요. 새 공연 소식은 곧 알려 드릴게요.</div>` : "")}
+  ${(() => { const list = homeSchedules(); return `<section class="sec"><div class="wrap">
+    <div class="sec-head"><div><h2>공연일정</h2><p>공연중, 공연예정, 지난 무대</p></div><div class="rail-ctrl">${list.length > 1 ? `<button class="rail-btn" data-act="rail" data-d="-1" aria-label="이전 공연">‹</button><button class="rail-btn" data-act="rail" data-d="1" aria-label="다음 공연">›</button>` : ""}<a class="btn ghost sm" href="#/schedule">전체 일정</a></div></div>
+    ${list.length ? `<div class="sched-rail" id="sched-rail" role="region" aria-label="공연일정 슬라이드" tabindex="0" data-keep-scroll="1">${list.map(railCard).join("")}</div>` : (S.loaded ? `<div class="empty">등록된 공연이 없어요. 새 공연 소식은 곧 알려 드릴게요.</div>` : "")}
   </div></section>`; })()}
   <section class="sec"><div class="wrap">
     <div class="sec-head"><div><h2>공연 기록</h2><p>무대 하이라이트와 연습실의 시간</p></div><a class="btn ghost sm" href="#/portfolio/video">전체 영상</a></div>
@@ -1378,12 +1429,9 @@ function vNews(id){
       ${n.image ? `<img src="${blob(n.image)}" alt="">` : ""}<div class="body">${paras(n.body || n.summary)}</div>
       ${n.link ? `<p><a class="btn ghost sm" href="${esc(n.link)}" target="_blank" rel="noopener">원문 보기</a></p>` : ""}</article></div>`;
   }
-  const types = ["전체","언론 보도","인터뷰","평론","칼럼"];
-  const nt = types.includes(S.newsType) ? S.newsType : "전체";
-  const list = nt === "전체" ? pressList() : pressList().filter(n => n.type === nt);
+  const list = pressList();
   return `<div class="wrap page-head"><h1>주요소식 News</h1><p>언론 보도와 인터뷰, 평론, 그리고 무용 칼럼.</p></div>
-  <div class="wrap" style="padding-bottom:80px">${newsTabs("press")}<div class="tabs subtabs">${types.map(t => `<button class="${nt === t ? "on" : ""}" data-act="ntype" data-v="${t}">${t}</button>`).join("")}</div>
-  ${loading()}${list.length ? `<div class="news-list">${list.map(newsRow).join("")}</div>` : (S.loaded ? `<div class="empty">이 분류의 글이 아직 없어요.</div>` : "")}</div>`;
+  <div class="wrap" style="padding-bottom:80px">${newsTabs("press")}${loading()}${list.length ? `<div class="news-list">${list.map(newsRow).join("")}</div>` : (S.loaded ? `<div class="empty">아직 등록된 언론보도가 없어요.</div>` : "")}</div>`;
 }
 
 function vContact(sub){
@@ -2255,12 +2303,15 @@ function vPopups(){
 let ldSig = "";
 function render(){
   S.pending = false;
+  const keep = {}; document.querySelectorAll("[data-keep-scroll]").forEach(el => { if (el.id) keep[el.id] = el.scrollLeft; });
   const sig = JSON.stringify([S.schedules, (S.news || []).filter(n => n.type === "일정").length, S.profile.name]); if (sig !== ldSig){ ldSig = sig; applyEventsLD(); }
   $("#hdr").innerHTML = vHeader();
   $("#main").innerHTML = view();
   $("#ftr").innerHTML = vFooter();
   $("#modal").innerHTML = vModal();
   $("#pops").innerHTML = vPopups();
+  Object.entries(keep).forEach(([id, x]) => { const el = document.getElementById(id); if (el) el.scrollLeft = x; });
+  railButtons(); topBtn();
   document.body.style.overflow = S.modal ? "hidden" : "";
   if (S.totpSecret && document.getElementById("qrbox")) drawQr();
 }
@@ -2339,6 +2390,18 @@ async function sendStat(key){
 }
 function flushTrack(){ const q = trackQueue; trackQueue = []; q.forEach(sendStat); }
 
+/* ---------- TOP 버튼: 조금이라도 내려가면 나타나고, 누르면 맨 위(메뉴)로 ---------- */
+function topBtn(){
+  const b = document.getElementById("totop"); if (!b) return;
+  const show = window.scrollY > 10 && route()[0] !== "admin";
+  b.classList.toggle("show", show); b.tabIndex = show ? 0 : -1; b.setAttribute("aria-hidden", show ? "false" : "true");
+}
+window.addEventListener("scroll", topBtn, {passive: true});
+document.getElementById("totop")?.addEventListener("click", () => {
+  window.scrollTo({top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+  setTimeout(() => document.querySelector("#hdr .brand")?.focus({preventScroll: true}), 400);
+});
+
 /* ---------- slideshow ---------- */
 function goSlide(n){
   const els = document.querySelectorAll(".hero-slides .slide"); const len = els.length; if (!len) return;
@@ -2351,10 +2414,10 @@ const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").match
 function restartSlides(){
   clearInterval(slideTimer);
   if (S.slidePaused || reducedMotion()) return;
-  slideTimer = setInterval(() => { if (!slideHover && !document.hidden) goSlide(S.slide + 1); }, 6000);
+  slideTimer = setInterval(() => { if (!slideHover && !document.hidden) goSlide(S.slide + 1); }, 4000);
 }
-document.addEventListener("mouseover", e => { slideHover = !!e.target.closest(".hero-slides"); });
-document.addEventListener("focusin", e => { if (e.target.closest(".slide-ctrl")) slideHover = true; });
+/* 첫 화면이 화면 전체를 차지하므로 마우스를 올려도 멈추지 않고 계속 넘어가요 */
+document.addEventListener("focusin", e => { slideHover = !!e.target.closest(".slide-ctrl"); });
 
 /* ---------- events ---------- */
 document.addEventListener("click", async e => {
@@ -2366,6 +2429,7 @@ document.addEventListener("click", async e => {
     case "menu": S.menuOpen = !S.menuOpen; render(); break;
     case "gorep": e.preventDefault(); location.hash = "#/about"; setTimeout(() => document.getElementById("rep-" + id)?.scrollIntoView(), 60); break;
     case "logout": logout(); break;
+    case "rail": { const r = document.getElementById("sched-rail"); if (r){ const card = r.querySelector(".rcard"); const step = card ? card.getBoundingClientRect().width + 16 : r.clientWidth * .8; r.scrollBy({left: Number(el.dataset.d) * step * Math.max(1, Math.floor(r.clientWidth / step)), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); } break; }
     case "stats-n": if (S.authed) loadStats(Number(el.dataset.v) || 30); break;
     case "stats-xls": if (S.authed) exportStats(); break;
     case "pop-close": S.popClosed[id] = true; render(); break;
