@@ -360,6 +360,21 @@ p{margin:0 0 1em}
 .totop:hover{border-color:var(--ink)}
 @media (max-width:560px){.totop{width:48px;height:48px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px))}}
 @media (prefers-reduced-motion:reduce){.totop{transition:none}}
+.ref-list{list-style:none;padding:0;margin:0}
+.ref{display:grid;grid-template-columns:1fr auto;gap:4px 16px;padding:10px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.ref b{font-weight:500}
+.ref span{font-size:.88rem;text-align:right}
+@media (max-width:640px){.ref{grid-template-columns:1fr}.ref span{text-align:left}}
+.bulk{border:1px solid var(--line);padding:10px 14px;margin-bottom:16px}
+.bulk summary{cursor:pointer;font-size:.9rem}
+.bulk textarea{width:100%;margin-top:8px;padding:10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:inherit;font-size:.9rem}
+.prgrid{display:flex;flex-direction:column;gap:6px}
+.prrow{display:grid;grid-template-columns:90px 1.6fr 1fr 36px;gap:6px;align-items:center}
+.prrow input{padding:9px 10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:inherit;font-size:.92rem;width:100%}
+.prhead{font-size:.78rem;color:var(--muted)}
+.prdel{border:1px solid var(--line);background:none;color:var(--muted);height:38px;cursor:pointer}
+.prdel:hover{color:var(--kasa);border-color:var(--kasa)}
+@media (max-width:560px){.prrow{grid-template-columns:64px 1fr 32px}.prrow input[data-pr-k=note]{grid-column:2/3;grid-row:2}.prrow .prdel{grid-row:1/3;grid-column:3;height:100%}.prhead span:nth-child(3){display:none}}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -1182,6 +1197,16 @@ function cvBlock(title, text){
   const r = cvRows(text);
   return r ? `<section class="cv-block"><h2>${title}</h2><ul class="cv-list">${r}</ul></section>` : "";
 }
+/* 공연 레퍼런스: 연도 / 공연명 / 비고 (관리자 표 입력). 예전 방식 기록은 표가 비어 있을 때만 보여 줌 */
+const yearKey = y => { const m = String(y || "").match(/(19|20)\d{2}/); return m ? m[0] : (String(y || "").trim() || "기타"); };
+function sortRefs(list){
+  return list.map((r, i) => ({...r, _i: i})).sort((a, b) => { const ya = yearKey(a.year), yb = yearKey(b.year); return ya === yb ? a._i - b._i : (ya === "기타" ? 1 : yb === "기타" ? -1 : yb.localeCompare(ya)); }).map(({_i, ...r}) => r);
+}
+function perfRefsView(){
+  const refs = Array.isArray(S.profile.perfRefs) ? S.profile.perfRefs.filter(r => String(r.title || "").trim()) : [];
+  const src = refs.length ? refs : (S.performances || []).map(x => ({year: String(x.date || "").slice(0, 4), title: x.title, note: [x.venue, x.role].filter(Boolean).join(", ")}));
+  return sortRefs(src).map(r => ({...r, yk: yearKey(r.year)}));
+}
 function vArtist(){
   const p = S.profile;
   const perf = S.performances;
@@ -1205,8 +1230,9 @@ function vArtist(){
   ${cv ? `<div class="sec"><div class="wrap">${cv}</div></div>` : ""}
   <section class="sec"><div class="wrap">
     <div class="sec-head"><div><h2>공연 레퍼런스</h2><p>무대에 오른 기록을 연도별로 정리했습니다.</p></div><a class="btn ghost sm" href="#/portfolio/video">공연 영상</a></div>
-    ${key.length ? `<div class="grid g3" style="margin-bottom:48px">${key.map(x => `<article class="keyperf">${x.image ? `<div class="pimg" style="aspect-ratio:4/3"><img src="${blob(x.image)}" alt="${esc(x.title)}" loading="lazy"></div>` : ""}<p class="muted" style="font-size:.85rem;margin:12px 0 4px">${fmtDate(x.date)}${x.venue ? `, ${esc(x.venue)}` : ""}</p><h3>${esc(x.title)}</h3>${x.role || x.repertoire ? `<p class="rep-st" style="margin-top:6px">${esc([x.role, x.repertoire].filter(Boolean).join(", "))}</p>` : ""}${x.description ? `<p style="font-size:.93rem">${esc(x.description)}</p>` : ""}</article>`).join("")}</div>` : ""}
-    ${perf.length ? years.map(y => `<div class="perf-year"><h3>${y}</h3><ul class="perf-list">${perf.filter(x => String(x.date || "").startsWith(y)).map(perfRow).join("")}</ul></div>`).join("") : (S.loaded ? `<div class="empty">등록된 공연 레퍼런스가 없어요.</div>` : loading())}
+    ${(() => { const refs = perfRefsView(); if (!refs.length) return S.loaded ? `<div class="empty">등록된 공연 레퍼런스가 없어요.</div>` : loading();
+      const groups = []; refs.forEach(r => { const g = groups.find(x => x.y === r.yk); if (g) g.items.push(r); else groups.push({y: r.yk, items: [r]}); });
+      return groups.map(g => `<div class="perf-year"><h3>${esc(g.y)}</h3><ul class="perf-list ref-list">${g.items.map(r => `<li class="ref"><b>${esc(r.title)}</b>${r.note ? `<span class="muted">${esc(r.note)}</span>` : ""}</li>`).join("")}</ul></div>`).join(""); })()}
   </div></section>`;
 }
 
@@ -1898,6 +1924,7 @@ function vAdmin(tab){
   else if (tab === "orders") body = adminOrders();
   else if (tab === "stats") body = adminStats();
   else if (tab === "schedules" && !(S.edit && S.edit.col === "schedules")) body = adminCollection("schedules") + schedSeoBox();
+  else if (tab === "performances") body = adminPerfRefs();
   else if (tab === "hero") body = docForm("hero", "첫 화면 문구", "메인페이지 맨 위(사진 슬라이드 위)에 크게 보이는 문구예요.");
   else if (tab === "repertoire") body = docForm("repertoire", "레퍼토리 설명", "About(레퍼토리) 페이지의 각 춤 카드 아래에 '나의 ○○'로 함께 보여요. 공식 자료 설명 아래에 무용가 본인의 사사 관계, 이수 여부, 해석을 적어 주세요.");
   else if (tab === "artistProfile") body = docForm("artistProfile", "프로필 · 이력 · 수상", "Artist(아티스트) 페이지에 보이는 내용이에요. 무용가 이름과 직함은 여러 페이지에 함께 쓰여 '사이트 전체 → 기본 정보'에 있어요.");
@@ -1989,6 +2016,42 @@ function schedSeoBox(){
     <p class="muted" style="font-size:.9rem">구글은 사이트를 열어 공연 정보를 자동으로 읽어 가요. <b>네이버는 index.html 파일 글자만 읽기 때문에</b>, 공연을 등록하거나 바꾼 뒤에는 아래 코드를 index.html에 붙여 넣어야 검색에 반영돼요. (지금 다가오는 공연 ${n}건)</p>
     <textarea class="codebox" readonly aria-label="검색 노출용 코드" onfocus="this.select()">${esc(code)}</textarea>
     <p class="hint" style="margin-top:8px">상자를 누르면 전체가 선택돼요. GitHub의 docs/index.html을 연필 아이콘으로 열고, 위쪽의 <code>▼ 공연일정 검색 노출 영역</code> 줄과 <code>▲ … 끝 ▲</code> 줄 사이의 내용을 이 코드로 바꿔 Commit하세요. 어렵다면 이 코드를 Claude에게 보내 주세요.</p></div>`;
+}
+function parseRefLines(text){
+  const out = [];
+  String(text || "").split(/\r?\n/).forEach(line => {
+    const l = line.trim(); if (!l) return;
+    let parts;
+    if (l.includes("\t")) parts = l.split("\t");
+    else if (l.includes("|")) parts = l.split("|");
+    else { const m = l.match(/^((?:19|20)\d{2}(?:[.\-~]\s*\d{0,4})?)\s+(.+)$/); if (m){ const rest = m[2].split(/\s{2,}| \/ /); parts = [m[1], rest[0], rest.slice(1).join(" ")]; } else parts = ["", l, ""]; }
+    const [year, title, ...note] = parts.map(x => String(x || "").trim());
+    if (title) out.push({year: year || "", title: title.slice(0, 200), note: note.join(" ").trim().slice(0, 200)});
+  });
+  return out;
+}
+function adminPerfRefs(){
+  if (!S.drafts.perfRefs) S.drafts.perfRefs = clone(Array.isArray(S.profile.perfRefs) ? S.profile.perfRefs : []);
+  const rows = S.drafts.perfRefs, legacy = (S.performances || []).length;
+  return `<div class="sec-head" style="margin-bottom:10px"><h2>공연 레퍼런스 <span class="muted" style="font-size:1rem">${rows.filter(r => String(r.title || "").trim()).length}건</span></h2></div>
+  <p class="muted" style="margin-bottom:16px">한 줄에 한 공연씩 <b>연도 / 공연명 / 비고</b>만 적어요. 저장하면 Artist 페이지에 연도별로 묶여 최신 연도부터 보여요.</p>
+  ${!rows.length && legacy ? `<div class="notice">예전 방식으로 등록한 공연 레퍼런스가 ${legacy}건 있어요. <button class="btn ghost sm" data-act="pr-import" style="margin-left:6px">표로 불러오기</button></div>` : ""}
+  <details class="bulk" ${rows.length ? "" : "open"}><summary>여러 줄 한 번에 넣기</summary>
+    <p class="hint">엑셀이나 한글에서 세 칸(연도, 공연명, 비고)을 복사해 붙여 넣거나, 한 줄에 <code>2025 | 공연명 | 비고</code>처럼 적어도 돼요. <code>2025 공연명</code>처럼 연도와 공연명만 적어도 돼요.</p>
+    <textarea data-keep="prbulk" rows="6" placeholder="2025 | 이가원의 춤 〈장삼의 시간〉 | 국립국악원 우면당, 출연&#10;2024 | 전통춤 초청 공연 | 미국 버지니아">${esc(S.keep.prbulk || "")}</textarea>
+    <button class="btn ghost sm" data-act="pr-bulk" style="margin-top:8px">아래 표에 추가</button></details>
+  <div class="prgrid"><div class="prrow prhead"><span>연도</span><span>공연명</span><span>비고</span><span></span></div>
+  ${rows.map((r, i) => `<div class="prrow"><input aria-label="${i + 1}번째 연도" placeholder="2025" value="${esc(r.year || "")}" data-pr-i="${i}" data-pr-k="year" inputmode="numeric"><input aria-label="${i + 1}번째 공연명" placeholder="공연명" value="${esc(r.title || "")}" data-pr-i="${i}" data-pr-k="title"><input aria-label="${i + 1}번째 비고" placeholder="장소, 역할 등" value="${esc(r.note || "")}" data-pr-i="${i}" data-pr-k="note"><button type="button" class="prdel" data-act="pr-del" data-i="${i}" aria-label="${i + 1}번째 줄 삭제">✕</button></div>`).join("")}
+  </div>
+  <div class="btn-row" style="margin-top:10px"><button class="btn ghost sm" data-act="pr-add">+ 줄 추가</button></div>
+  <div class="btn-row" style="margin-top:20px"><button class="btn" data-act="pr-save" ${S.busy ? "disabled" : ""}>${S.busy ? "저장하는 중…" : "저장"}</button><span class="hint" style="align-self:center">저장할 때 연도 순으로 자동 정렬돼요. 공연명이 빈 줄은 저장되지 않아요.</span></div>`;
+}
+async function savePerfRefs(){
+  const rows = sortRefs((S.drafts.perfRefs || []).map(r => ({year: String(r.year || "").trim().slice(0, 20), title: String(r.title || "").trim().slice(0, 200), note: String(r.note || "").trim().slice(0, 200)})).filter(r => r.title));
+  S.busy = true; render();
+  try { await FS.doc("site/profile").merge({perfRefs: rows, updatedAt: Date.now()}); S.drafts.perfRefs = clone(rows); toast(`공연 레퍼런스 ${rows.length}건을 저장했어요`); }
+  catch(e){ toast(failMsg(e, "저장하지 못했어요.")); }
+  S.busy = false; render();
 }
 function adminCollection(col){
   const sch = SCHEMA[col];
@@ -2429,6 +2492,11 @@ document.addEventListener("click", async e => {
     case "gorep": e.preventDefault(); location.hash = "#/about"; setTimeout(() => document.getElementById("rep-" + id)?.scrollIntoView(), 60); break;
     case "logout": logout(); break;
     case "rail": { const r = document.getElementById("sched-rail"); if (r){ const card = r.querySelector(".rcard"); const step = card ? card.getBoundingClientRect().width + 16 : r.clientWidth * .8; r.scrollBy({left: Number(el.dataset.d) * step * Math.max(1, Math.floor(r.clientWidth / step)), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); } break; }
+    case "pr-add": if (!S.authed) break; (S.drafts.perfRefs = S.drafts.perfRefs || []).push({year: "", title: "", note: ""}); render(); { const ins = document.querySelectorAll(".prrow input[data-pr-k=year]"); ins[ins.length - 1]?.focus(); } break;
+    case "pr-del": if (!S.authed) break; S.drafts.perfRefs.splice(Number(el.dataset.i), 1); render(); break;
+    case "pr-bulk": { if (!S.authed) break; const add = parseRefLines(S.keep.prbulk); if (!add.length){ toast("넣을 내용이 없어요"); break; } S.drafts.perfRefs = [...(S.drafts.perfRefs || []), ...add]; S.keep.prbulk = ""; toast(`${add.length}줄을 표에 추가했어요. 확인 후 저장을 눌러 주세요`); render(); break; }
+    case "pr-import": if (!S.authed) break; S.drafts.perfRefs = sortRefs((S.performances || []).map(x => ({year: String(x.date || "").slice(0, 4), title: x.title || "", note: [x.venue, x.role].filter(Boolean).join(", ")}))); toast("예전 기록을 표로 불러왔어요. 확인 후 저장을 눌러 주세요"); render(); break;
+    case "pr-save": if (S.authed) savePerfRefs(); break;
     case "stats-n": if (S.authed) loadStats(Number(el.dataset.v) || 30); break;
     case "stats-xls": if (S.authed) exportStats(); break;
     case "pop-close": S.popClosed[id] = true; render(); break;
@@ -2507,6 +2575,7 @@ document.addEventListener("keydown", e => {
   if (S.modal && S.modal.type === "img" && (e.key === "ArrowRight" || e.key === "ArrowLeft")){ const n = S.gallery.length; S.modal.i = (S.modal.i + (e.key === "ArrowRight" ? 1 : -1) + n) % n; render(); }
 });
 function bindDraft(e){
+  if (e.target.dataset && e.target.dataset.prI !== undefined){ const r = (S.drafts.perfRefs || [])[Number(e.target.dataset.prI)]; if (r) r[e.target.dataset.prK] = e.target.value; return; }
   if (e.target.dataset && e.target.dataset.keep){ S.keep[e.target.dataset.keep] = e.target.value; return; }
   if (e.target.dataset && e.target.dataset.optI !== undefined){
     const d = draft("edit"); d.options = Array.isArray(d.options) ? d.options : [];
