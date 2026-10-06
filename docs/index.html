@@ -413,6 +413,19 @@ p{margin:0 0 1em}
 .pc-modal .modal-top{justify-content:space-between;align-items:center}
 .pc-modal .modal-top button{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
 #pc-box{height:min(520px,72svh);background:#fff}
+.pd-actions.one{grid-template-columns:1fr}
+.picklist{list-style:none;padding:0;margin:4px 0 0;border-top:1px solid var(--line)}
+.picklist li{display:grid;grid-template-columns:1fr auto auto 32px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.picklist .pk-name{font-weight:500}
+.picklist b{min-width:84px;text-align:right;font-variant-numeric:tabular-nums}
+.pk-rm{border:0;background:none;color:var(--muted);cursor:pointer;font-size:1rem;height:32px}
+.pk-rm:hover{color:var(--kasa)}
+.opts button[aria-pressed=true]{border-color:var(--ink);background:var(--ink);color:var(--on-ink)}
+@media (max-width:420px){.picklist li{grid-template-columns:1fr auto 28px;}.picklist b{grid-column:1/2;text-align:left}}
+.pd-title{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:6px 0 10px}
+.pd-title h1{margin:0}
+.share-btn{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:none;color:var(--ink);padding:8px 14px;border-radius:999px;font-size:.85rem;cursor:pointer;white-space:nowrap;margin-top:4px}
+.share-btn:hover{border-color:var(--ink)}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -715,13 +728,40 @@ const shipCfg = () => { const c = S.store || {}; return {free: c.shipMode === "�
 function shipFor(sub){ const c = shipCfg(); if (sub <= 0 || c.free || c.fee === 0) return 0; if (c.over !== null && c.over > 0 && sub >= c.over) return 0; return c.fee; }
 const bankParts = () => { const st = S.store || {}; return st.bankName || st.bankAccount ? {name: String(st.bankName || "").trim(), account: String(st.bankAccount || "").trim(), holder: String(st.bankHolder || "").trim()} : null; };
 const bankText = () => { const b = bankParts(); if (b) return `${b.name} ${b.account}${b.holder ? ` (예금주 ${b.holder})` : ""}`.trim(); return String((S.store && S.store.bank) || S.profile.bank || "").trim(); };
+/* 공유하기: 휴대폰은 기기 공유 창(카카오톡, 문자 등), PC 등 지원하지 않으면 링크 복사 */
+async function shareProduct(pid){
+  const p = findP(pid); if (!p) return;
+  const url = location.origin + location.pathname + "#/product/" + encodeURIComponent(pid);
+  const site = S.profile.siteTitle || S.profile.name || document.title;
+  const data = {title: `${p.name} | ${site}`, text: `${p.name}${p.summary ? " - " + p.summary : ""}`, url};
+  if (navigator.share && (!navigator.canShare || navigator.canShare(data))){
+    try { await navigator.share(data); return; } catch(e){ if (e && e.name === "AbortError") return; }
+  }
+  try { await navigator.clipboard.writeText(url); toast("상품 링크를 복사했어요. 카카오톡이나 문자에 붙여 넣어 공유해 주세요."); }
+  catch(e){ copyText(url); }
+}
 async function copyText(t){
   try { await navigator.clipboard.writeText(t); }
   catch(e){ const ta = document.createElement("textarea"); ta.value = t; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch(_){} ta.remove(); }
   toast(`복사했어요: ${t}`);
 }
 const mktConsent = () => { const t = String(S.profile.mktText || "").trim(); return t ? {title: String(S.profile.mktTitle || "").trim() || "개인정보 마케팅 활용 동의", text: t} : null; };
-function shipText(){ const c = shipCfg(); if (c.free || c.fee === 0) return "무료"; return c.over ? `${won(c.fee)} (${won(c.over)} 이상 무료)` : won(c.fee); }
+function shipText(p){ const c = p ? pShip(p) : shipCfg(); if (c.free || c.fee === 0) return "무료"; return c.over ? `${won(c.fee)} (${won(c.over)} 이상 무료)` : won(c.fee); }
+/* 상품별 배송비: 상품에 설정이 없으면 예전 공통 설정을 그대로 사용 */
+function pShip(p){
+  if (!p || !p.shipMode) return shipCfg();
+  const over = p.freeOver === null || p.freeOver === "" || p.freeOver === undefined ? null : Math.max(0, Number(p.freeOver) || 0);
+  return {free: p.shipMode === "무료", fee: Math.max(0, Number(p.shipFee) || 0), over};
+}
+/* 상품별 입금 계좌: 상품에 없으면 예전 공통 계좌 */
+function pBank(p){
+  if (p && (p.bankName || p.bankAccount)) return {name: String(p.bankName || "").trim(), account: String(p.bankAccount || "").trim(), holder: String(p.bankHolder || "").trim()};
+  const b = bankParts(); if (b) return b;
+  const t = String((S.store && S.store.bank) || S.profile.bank || "").trim();
+  return t ? {name: "", account: t, holder: "", legacy: true} : null;
+}
+const bankKey = b => b ? `${b.name}|${String(b.account).replace(/[^0-9A-Za-z]/g, "")}` : "";
+const bankLine = b => !b ? "" : b.legacy ? b.account : `${b.name} ${b.account}${b.holder ? ` (예금주 ${b.holder})` : ""}`.trim();
 
 /* ---------- firebase ---------- */
 const CONFIGURED = !!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && !/^YOUR_/.test(FIREBASE_CONFIG.apiKey));
@@ -779,7 +819,7 @@ const S = {
   products: [], videos: [], gallery: [], projects: [], news: [], performances: [], popups: [], schedules: [], popClosed: {}, meta: {}, store: {}, keep: {}, lookup: null, lastOrder: null, slides: [], slide: 0, slidePaused: false,  profile: {},
   myOrders: [], allOrders: [], inquiries: [],
   db: null, uid: null, authUser: null, isAdmin: false, mfaOk: false, mfaEnrolled: false, authed: false, authStep: "login", mfaResolver: null, totpSecret: null, fails: 0, lockUntil: 0, adminStarted: false, online: CONFIGURED, loaded: false, canUpload: false,
-  cart: loadCart(), drafts: {}, qty: {}, optSel: {}, pdImg: {}, edit: null, confirmDel: null,
+  cart: loadCart(), drafts: {}, qty: {}, optSel: {}, pick: {}, pdImg: {}, edit: null, confirmDel: null,
   modal: null, menuOpen: false, storeCat: "전체", storeSort: "new", videoCat: "전체", newsType: "전체", pending: false, busy: false
 };
 function loadCart(){ try { return JSON.parse(localStorage.getItem("seungmu-cart") || "[]"); } catch(e){ return []; } }
@@ -892,11 +932,19 @@ function lineWhy(l){
   if (overMax(l)) return `1회 최대 ${maxOf(l.p)}${unitWord(l.p)}까지 구매할 수 있어요. 수량을 줄여 주세요.`;
   return "주문 가능한 수량보다 많아요. 수량을 줄여 주세요.";
 }
-const overMax = l => ((isBuyNow() && S.buyNow) ? [S.buyNow] : S.cart).filter(x => x.pid === l.pid).reduce((a, x) => a + x.qty, 0) > maxOf(l.p);
+const overMax = l => ((isBuyNow() && S.buyNow) ? S.buyNow.lines.map(x => ({pid: S.buyNow.pid, qty: x.qty})) : S.cart).filter(x => x.pid === l.pid).reduce((a, x) => a + x.qty, 0) > maxOf(l.p);
 const lineBad = l => !buyable(l.p) || (hasOpts(l.p) && (!findOpt(l.p, l.opt) || optSoldOut(findOpt(l.p, l.opt)))) || l.qty > stockOf(l.p, l.opt) || overMax(l);
 const cartCount = () => S.cart.reduce((s, l) => s + l.qty, 0);
 const needsShip = ls => ls.some(l => !isPickup(l.p));
-function totals(ls){ const sub = ls.reduce((s, l) => s + unit(l.p) * l.qty, 0); const shipSub = ls.filter(l => !isPickup(l.p)).reduce((s, l) => s + unit(l.p) * l.qty, 0); const ship = needsShip(ls) ? shipFor(shipSub) : 0; return {sub, ship, total: sub + ship}; }
+/* 배송비는 상품별로 계산해 더함 (같은 상품의 여러 옵션은 한 번만) */
+function shipOf(lines){
+  const by = {};
+  lines.filter(l => !isPickup(l.p)).forEach(l => { (by[l.pid] = by[l.pid] || {p: l.p, sub: 0}).sub += unit(l.p) * l.qty; });
+  return Object.values(by).reduce((a, {p, sub}) => { const c = pShip(p); if (sub <= 0 || c.free || c.fee === 0 || (c.over && sub >= c.over)) return a; return a + c.fee; }, 0);
+}
+function totals(ls){ const sub = ls.reduce((s, l) => s + unit(l.p) * l.qty, 0); const ship = shipOf(ls); return {sub, ship, total: sub + ship}; }
+/* 장바구니(또는 바로 구매)에 입금 계좌가 다른 상품이 섞였는지 */
+const banksOf = ls => [...new Map(ls.map(l => pBank(l.p)).filter(Boolean).map(b => [bankKey(b), b])).values()];
 /* the product page quantity belongs to one product + one size */
 const qtyKey = pid => pid + "|" + (S.optSel[pid] || "");
 const selQty = pid => S.qty[qtyKey(pid)] || 1;
@@ -916,6 +964,8 @@ function pickSelection(pid){
 }
 function addToCart(pid, qty){
   const sel = pickSelection(pid); if (!sel) return false;
+  const nb = pBank(sel.p), mixed = cartLines().find(l => l.pid !== pid && bankKey(pBank(l.p)) !== bankKey(nb));
+  if (mixed){ toast("입금 계좌가 다른 상품이 장바구니에 있어요. 장바구니 상품을 먼저 주문하거나 '바로 구매'를 이용해 주세요."); return false; }
   const {opt, max} = sel, label = opt ? `${opt} ` : "";
   const ex = S.cart.find(l => l.pid === pid && (l.opt || "") === opt);
   const before = ex ? ex.qty : 0;
@@ -931,16 +981,28 @@ function addToCart(pid, qty){
   return true;
 }
 /* 바로 구매: 장바구니와 상관없이 고른 상품, 사이즈, 수량 그대로 주문서로 */
-function buyNow(pid, qty){
-  const sel = pickSelection(pid); if (!sel) return false;
-  if (qty > sel.max){ toast("주문 가능한 수량보다 많아요. 수량을 줄여 주세요"); return false; }
-  if (qty > maxOf(sel.p)){ toast(`이 상품은 1회 최대 ${maxOf(sel.p)}${unitWord(sel.p)}까지 구매할 수 있어요`); return false; }
-  S.buyNow = sel.opt ? {pid, opt: sel.opt, qty} : {pid, qty};
+/* 한 번의 주문 = 한 상품 (옵션은 여러 개 가능). 장바구니 없이 상품 화면에서 바로 주문 */
+function pickLines(pid){ return (S.pick[pid] = S.pick[pid] || []); }
+function buyNow(pid){
+  const p = findP(pid); if (!p) return false;
+  const ss = saleState(p);
+  if (ss !== "판매중"){ toast(ss === "판매예정" ? `${fmtLocal(p.saleStart)}부터 구매할 수 있어요` : ss === "판매마감" ? "판매가 마감된 상품이에요" : "SOLD OUT 된 상품이에요"); return false; }
+  const lines = hasOpts(p) ? pickLines(pid).filter(l => l.qty > 0) : [{opt: "", qty: selQty(pid)}];
+  if (!lines.length){ toast(`${optLabel(p)}를 선택해 주세요`); return false; }
+  for (const l of lines){
+    const o = hasOpts(p) ? findOpt(p, l.opt) : null;
+    if (hasOpts(p) && (!o || optSoldOut(o))){ toast(`'${l.opt}'은(는) SOLD OUT 되었어요`); return false; }
+    if (l.qty > stockOf(p, l.opt)){ toast(`'${l.opt || p.name}'의 주문 가능한 수량보다 많아요`); return false; }
+  }
+  const sum = lines.reduce((a, l) => a + l.qty, 0);
+  if (sum > maxOf(p)){ toast(`이 상품은 1회 최대 ${maxOf(p)}${unitWord(p)}까지 구매할 수 있어요`); return false; }
+  S.buyNow = {pid, lines: lines.map(l => ({opt: l.opt, qty: l.qty}))};
   return true;
 }
 const isBuyNow = () => route()[0] === "checkout" && route()[1] === "now" && !!S.buyNow;
 function checkoutLines(){
-  if (isBuyNow()){ const p = findP(S.buyNow.pid); return p && p.status !== "숨김" ? [{...S.buyNow, p}] : []; }
+  if (isBuyNow()){ const p = findP(S.buyNow.pid); return p && p.status !== "숨김" ? S.buyNow.lines.map(l => ({pid: S.buyNow.pid, opt: l.opt || undefined, qty: l.qty, p})) : []; }
+  return [];
   return cartLines();
 }
 
@@ -1343,7 +1405,7 @@ function vStore(){
   else if (S.storeSort === "high") list.sort((a, b) => unit(b) - unit(a));
   return `<div class="wrap page-head"><h1>Store</h1><p>전통춤의 선과 색을 일상의 순간으로</p></div>
   <div class="wrap" style="padding-bottom:80px">${offlineNote()}
-    <div class="store-bar"><span class="muted">${list.length}개의 상품</span><a href="#/cart" class="cart-btn" style="margin-left:auto">장바구니 <b>${cartCount()}</b></a><a href="#/orders" class="cart-btn">주문조회</a>
+    <div class="store-bar"><span class="muted">${list.length}개의 상품</span><a href="#/orders" class="cart-btn" style="margin-left:auto">주문조회</a>
     <label><span class="sr">정렬</span><select class="sort" data-act-change="ssort"><option value="new" ${S.storeSort === "new" ? "selected" : ""}>신상품순</option><option value="low" ${S.storeSort === "low" ? "selected" : ""}>낮은 가격순</option><option value="high" ${S.storeSort === "high" ? "selected" : ""}>높은 가격순</option></select></label></div>
     ${loading()}${list.length ? `<div class="grid g4">${list.map(productCard).join("")}</div>` : (S.loaded ? `<div class="empty">표시할 상품이 없어요.</div>` : "")}
   </div>`;
@@ -1357,12 +1419,12 @@ function vProduct(id){
   const q = selQty(id);
   const ss = saleState(p), so = ss !== "판매중", pt = ptypeOf(p);
   const opts = hasOpts(p), sel = opts ? findOpt(p, S.optSel[id]) : null;
-  return `<div class="wrap"><div class="crumbs" style="display:flex;justify-content:space-between;align-items:center"><a href="#/store">스토어</a><a href="#/cart" class="cart-btn">장바구니 <b>${cartCount()}</b></a></div>
+  return `<div class="wrap"><div class="crumbs" style="display:flex;justify-content:space-between;align-items:center"><a href="#/store">스토어</a><a href="#/orders" class="cart-btn">주문조회</a></div>
   <div class="pd">
     <div>${imgs.length ? `<button type="button" class="pd-main zoomable" data-act="pzoom" data-id="${esc(id)}" data-i="${cur}" aria-label="사진 크게 보기">${imgOr(imgs[cur], p.id, p.name)}<span class="zoom-hint" aria-hidden="true">⤢ 크게 보기</span></button>` : `<div class="pd-main">${imgOr(imgs[cur], p.id, p.name)}</div>`}
       ${imgs.length > 1 ? `<div class="thumbs">${imgs.map((im, i) => `<button class="${i === cur ? "on" : ""}" data-act="pdimg" data-id="${esc(id)}" data-i="${i}" aria-label="${i+1}번째 이미지"><img src="${blob(im)}" alt=""></button>`).join("")}</div>` : ""}</div>
     <div>
-            <h1>${esc(p.name)}</h1>
+      <div class="pd-title"><h1>${esc(p.name)}</h1><button type="button" class="share-btn" data-act="share" data-id="${esc(id)}" aria-label="이 상품 공유하기"><span aria-hidden="true">↗</span> 공유하기</button></div>
       ${p.summary ? `<p class="muted">${esc(p.summary)}</p>` : ""}
       <div class="price-big">${priceHtml(p)}</div>
       ${p.preorder ? `<p class="pre-badge">사전 주문 제작 상품 · 환불 불가</p>` : ""}
@@ -1370,15 +1432,18 @@ function vProduct(id){
       <dl class="kv">${so ? `<dt>상태</dt><dd><b>${ss === "판매예정" ? `판매 예정 (${esc(fmtLocal(p.saleStart))} 오픈)` : ss === "판매마감" ? "판매 마감" : "SOLD OUT"}</b></dd>` : ""}
         ${pt === "티켓" && p.eventAt ? `<dt>공연 일시</dt><dd>${esc(fmtLocal(p.eventAt))}</dd>` : ""}${pt === "티켓" && p.eventVenue ? `<dt>공연 장소</dt><dd>${esc(p.eventVenue)}</dd>` : ""}
         ${pt === "티켓" && p.receive ? `<dt>수령 방법</dt><dd>${esc(p.receive)}${isPickup(p) ? " (공연 당일 현장에서 수령)" : ""}</dd>` : ""}
-        <dt>배송비</dt><dd>${isPickup(p) ? "없음 (현장수령)" : shipText()}</dd>
+        <dt>배송비</dt><dd>${isPickup(p) ? "없음 (현장수령)" : shipText(p)}</dd>
         ${maxOf(p) !== Infinity ? `<dt>구매 제한</dt><dd>1회 최대 ${maxOf(p)}${unitWord(p)}</dd>` : ""}
         ${p.saleEnd && ss !== "판매마감" ? `<dt>판매 마감</dt><dd>${esc(fmtLocal(p.saleEnd))}</dd>` : ""}
         <dt>결제</dt><dd>무통장 입금</dd></dl>
       ${so ? `<button class="btn" disabled style="width:100%">${ss === "판매예정" ? "판매 예정" : ss === "판매마감" ? "판매 마감" : "SOLD OUT"}</button>` : `
-      ${opts ? `<div class="optbox"><p class="optlabel" id="opt-${esc(id)}">${esc(optLabel(p))}</p><div class="opts" role="radiogroup" aria-labelledby="opt-${esc(id)}">${p.options.map(o => `<button type="button" role="radio" aria-checked="${sel && sel.name === o.name}" class="${sel && sel.name === o.name ? "on" : ""}" data-act="optsel" data-id="${esc(id)}" data-v="${esc(o.name)}" ${optSoldOut(o) ? 'disabled aria-disabled="true"' : ""}>${esc(o.name)}${optSoldOut(o) ? "<small>SOLD OUT</small>" : ""}</button>`).join("")}</div></div>` : ""}
-      <div style="display:flex;justify-content:space-between;align-items:center"><span>수량</span><div class="qty"><button data-act="qty" data-id="${esc(id)}" data-d="-1" aria-label="수량 줄이기">−</button><span aria-live="polite">${q}</span><button data-act="qty" data-id="${esc(id)}" data-d="1" aria-label="수량 늘리기">+</button></div></div>
-      <div class="total-line"><span>총 상품 금액</span><b>${won(unit(p) * q)}</b></div>
-      <div class="pd-actions"><button class="btn ghost" data-act="addcart" data-id="${esc(id)}">장바구니 담기</button><button class="btn" data-act="buynow" data-id="${esc(id)}">바로 구매</button></div>`}
+      ${opts ? `<div class="optbox"><p class="optlabel" id="opt-${esc(id)}">${esc(optLabel(p))} 선택</p><div class="opts" role="group" aria-labelledby="opt-${esc(id)}">${p.options.map(o => { const on = pickLines(id).some(l => l.opt === o.name); return `<button type="button" aria-pressed="${on}" class="${on ? "on" : ""}" data-act="optpick" data-id="${esc(id)}" data-v="${esc(o.name)}" ${optSoldOut(o) ? 'disabled aria-disabled="true"' : ""}>${esc(o.name)}${optSoldOut(o) ? "<small>SOLD OUT</small>" : ""}</button>`; }).join("")}</div>
+        <p class="hint" style="margin-top:6px">여러 ${esc(optLabel(p))}을 함께 고를 수 있어요.</p></div>
+        ${pickLines(id).length ? `<ul class="picklist">${pickLines(id).map((l, i) => `<li><span class="pk-name">${esc(l.opt)}</span><div class="qty"><button data-act="pkq" data-id="${esc(id)}" data-i="${i}" data-d="-1" aria-label="${esc(l.opt)} 수량 줄이기">−</button><span aria-live="polite">${l.qty}</span><button data-act="pkq" data-id="${esc(id)}" data-i="${i}" data-d="1" aria-label="${esc(l.opt)} 수량 늘리기">+</button></div><b>${won(unit(p) * l.qty)}</b><button class="pk-rm" data-act="pkrm" data-id="${esc(id)}" data-i="${i}" aria-label="${esc(l.opt)} 빼기">✕</button></li>`).join("")}</ul>` : ""}`
+      : `<div style="display:flex;justify-content:space-between;align-items:center"><span>수량</span><div class="qty"><button data-act="qty" data-id="${esc(id)}" data-d="-1" aria-label="수량 줄이기">−</button><span aria-live="polite">${q}</span><button data-act="qty" data-id="${esc(id)}" data-d="1" aria-label="수량 늘리기">+</button></div></div>`}
+      <div class="total-line"><span>총 상품 금액</span><b>${won(unit(p) * (opts ? pickLines(id).reduce((a, l) => a + l.qty, 0) : q))}</b></div>
+      <div class="pd-actions one"><button class="btn" data-act="buynow" data-id="${esc(id)}">구매하기</button></div>
+      <p class="hint" style="margin-top:8px">한 번의 주문에는 한 가지 상품만 담을 수 있어요. 다른 상품은 따로 주문해 주세요.</p>`}
       <div class="policy"><p>${REFUND_NOTE}</p><p>${PREORDER_NOTE}</p></div>
       ${p.description ? `<div class="pd-desc">${esc(p.description)}</div>` : ""}
     </div>
@@ -1404,7 +1469,7 @@ function vCheckout(){
   if (!ls.length) return vCart();
   const d = draft("checkout");
   const f = (k, l, type, req, wide, ph) => `<div class="fld ${wide ? "wide" : ""}"><label for="co-${k}">${l}${req ? " <i>*</i>" : ""}</label><input id="co-${k}" name="${k}" type="${type}" value="${esc(d[k] || "")}" ${req ? "required" : ""} ${ph ? `placeholder="${esc(ph)}"` : ""}></div>`;
-  return `<div class="wrap page-head"><h1>주문서 작성</h1>${isBuyNow() ? `<p>바로 구매 주문이에요. 장바구니에 담긴 다른 상품은 그대로 남아 있어요.</p>` : ""}</div>
+  return `<div class="wrap page-head"><h1>주문서 작성</h1></div>
   <form class="wrap cart" data-form="checkout" data-draft="checkout" novalidate><div>
     
     <fieldset class="fieldset"><h3>주문자 정보</h3><div class="form">${f("name","이름","text",1)}${f("phone","휴대폰 번호 (숫자만)","tel",1,0,"01012345678")}${f("email","이메일","email",0,1)}</div></fieldset>
@@ -1417,7 +1482,7 @@ function vCheckout(){
       <div class="fld"><label for="co-opw">비밀번호 <i>*</i></label><input id="co-opw" type="password" data-keep="opw" value="${esc(S.keep.opw || "")}" autocomplete="new-password" minlength="6" maxlength="30" required></div>
       <div class="fld"><label for="co-opw2">비밀번호 확인 <i>*</i></label><input id="co-opw2" type="password" data-keep="opw2" value="${esc(S.keep.opw2 || "")}" autocomplete="new-password" maxlength="30" required></div>
       <p class="hint" style="grid-column:1/-1">주문 내역을 조회할 때 이름, 휴대폰 번호와 함께 사용해요. 6자 이상으로 정해 주세요. 비밀번호는 저장되지 않아 잊어버리면 찾아 드릴 수 없으니 꼭 기억해 주세요.</p></div></fieldset>
-    <fieldset class="fieldset"><h3>결제 수단</h3><label class="check"><input type="radio" checked disabled> 무통장 입금</label>${bankText() ? `<p class="hint" style="margin-top:8px">입금 계좌: ${esc(bankText())}</p>` : ""}<p class="hint">주문 후 3일 이내 입금이 확인되지 않으면 주문이 취소될 수 있어요.</p></fieldset>
+    <fieldset class="fieldset"><h3>결제 수단</h3><label class="check"><input type="radio" checked disabled> 무통장 입금</label>${(() => { const bs = banksOf(ls); return bs.length > 1 ? `<div class="notice" style="border-left-color:var(--kasa);margin-top:10px"><b>입금 계좌가 다른 상품이 함께 담겨 있어요.</b> 한 번에 주문할 수 없으니 장바구니에서 상품을 나눠 따로 주문해 주세요.</div>` : bs.length ? `<p class="hint" style="margin-top:8px">입금 계좌: ${esc(bankLine(bs[0]))}</p>` : ""; })()}<p class="hint">주문 후 3일 이내 입금이 확인되지 않으면 주문이 취소될 수 있어요.</p></fieldset>
     ${(() => {
       const prods = [...new Map(ls.map(l => [l.pid, l.p])).values()];
       const tp = prods.filter(x => String(x.terms || "").trim()), pre = prods.filter(x => x.preorder), MK = mktConsent();
@@ -1442,8 +1507,8 @@ function vOrderDone(id){
     <p>주문번호 <b class="ono">${esc(o.no)}</b></p>
     <p class="muted">주문일시 ${fmtDT(o.createdAt)}</p>
     <p class="hint">주문번호를 메모해 두세요. 주문 조회는 <b>이름 + 휴대폰 번호 + 비밀번호</b> 또는 <b>이름 + 주문번호 + 비밀번호</b>로 할 수 있어요.</p>
-    <div class="bank">${(() => { const b = bankParts(); const row = (label, val, copy) => `<div class="bank-row"><span>${label}</span><b>${esc(val)}</b>${copy ? `<button type="button" class="copy-btn" data-act="copy" data-v="${esc(copy)}" aria-label="${label} 복사">복사</button>` : ""}</div>`;
-      return row("입금하실 금액", won(o.total), String(o.total)) + (b ? row("은행", b.name, b.name) + row("계좌번호", b.account, b.account.replace(/[^0-9-]/g, "") || b.account) + (b.holder ? row("예금주", b.holder, b.holder) : "") + `<button type="button" class="btn ghost sm" data-act="copy" data-v="${esc(bankText())}" style="margin-top:10px;width:100%">계좌 정보 한 번에 복사</button>` : bankText() ? row("입금 계좌", bankText(), bankText()) : ""); })()}
+    <div class="bank">${(() => { const b0 = o.bank && (o.bank.account || o.bank.name) ? o.bank : pBank(null); const b = b0 && !b0.legacy && (b0.name || b0.account) ? b0 : null; const legacyT = b0 && b0.legacy ? b0.account : ""; const row = (label, val, copy) => `<div class="bank-row"><span>${label}</span><b>${esc(val)}</b>${copy ? `<button type="button" class="copy-btn" data-act="copy" data-v="${esc(copy)}" aria-label="${label} 복사">복사</button>` : ""}</div>`;
+      return row("입금하실 금액", won(o.total), String(o.total)) + (b ? row("은행", b.name, b.name) + row("계좌번호", b.account, b.account.replace(/[^0-9-]/g, "") || b.account) + (b.holder ? row("예금주", b.holder, b.holder) : "") + `<button type="button" class="btn ghost sm" data-act="copy" data-v="${esc(bankLine(b))}" style="margin-top:10px;width:100%">계좌 정보 한 번에 복사</button>` : legacyT ? row("입금 계좌", legacyT, legacyT) : ""); })()}
       <p class="hint" style="margin-top:10px">입금이 확인되면 주문 상태가 '입금완료'로 바뀌고 순서대로 준비됩니다.</p></div>
     <div class="policy" style="text-align:left"><p>${REFUND_NOTE}</p><p>${PREORDER_NOTE}</p><p>입금 전(입금대기)에는 주문 조회 화면에서 직접 주문을 취소할 수 있어요.</p></div>
     <div class="btn-row" style="justify-content:center"><a class="btn" href="#/orders">주문 조회</a><a class="btn ghost" href="#/store">쇼핑 계속하기</a></div></div>`;
@@ -1485,7 +1550,7 @@ function vOrders(){
     </form>
     ${L === false ? `<div class="empty" style="margin-top:24px">일치하는 주문이 없어요. 이름, ${mode === "phone" ? "휴대폰 번호" : "주문번호"}, 비밀번호를 다시 확인해 주세요.</div>` : ""}
     ${list.length ? `<div class="ocards">${cards}</div>
-      ${list.some(o => stOf(o).status === "입금대기") && bankText() ? `<p class="hint" style="margin-top:12px">입금 계좌: ${esc(bankText())}</p>` : ""}
+      ${(() => { const w = list.filter(o => stOf(o).status === "입금대기"); const bs = [...new Set(w.map(o => bankLine(o.bank && (o.bank.account || o.bank.name) ? o.bank : pBank(null))).filter(Boolean))]; return bs.length ? `<p class="hint" style="margin-top:12px">입금 계좌: ${bs.map(esc).join(" / ")}</p>` : ""; })()}
       <p class="hint" style="margin-top:12px">조회 결과는 이 화면을 벗어나면 지워져요.</p>` : ""}
     <div class="policy" style="margin-top:28px"><p><b>${REFUND_NOTE}</b></p><p>${PREORDER_NOTE}</p><p>입금 전(입금대기)에는 이 화면에서 직접 주문을 취소할 수 있어요.</p></div>
     <p class="hint" style="margin-top:28px">비밀번호를 잊으셨다면 <a href="#/contact/store">스토어 문의</a>로 주문번호와 함께 알려 주세요. 확인 후 안내해 드려요.</p>
@@ -1600,6 +1665,9 @@ const SCHEMA = {
     {k:"eventAt",l:"공연 일시",t:"datetime",types:["티켓"]},{k:"eventVenue",l:"공연 장소",types:["티켓"]},
     {k:"receive",l:"수령 방법",t:"select",opts:["현장수령","우편수령"],req:1,types:["티켓"],hint:"현장수령: 상품 화면과 주문에 '현장수령' 표시, 배송비와 주소 입력 없음. 우편수령: 배송비와 주소를 받아요."},
     {k:"maxPerOrder",l:"1회 최대 구매 수량",t:"number",types:["티켓","일반상품"],hint:"한 번 주문에서 이 상품을 최대 몇 개(매)까지 살 수 있는지예요. 옵션을 합친 수량 기준이에요. 비워 두면 제한 없음."},
+    {k:"shipMode",l:"배송비",t:"select",opts:["유료","무료"],req:1,ship:1,hint:"이 상품의 배송비예요. 장바구니에 여러 상품이 있으면 상품마다 따로 계산해 더해요."},
+    {k:"shipFee",l:"배송비 금액 (원)",t:"number",ship:1,paid:1},{k:"freeOver",l:"이 금액 이상 사면 무료 (원)",t:"number",ship:1,paid:1,hint:"이 상품을 이 금액 이상 사면 배송비가 무료예요. 비워 두면 항상 배송비를 받아요."},
+    {k:"bankName",l:"입금 은행",req:1},{k:"bankAccount",l:"입금 계좌번호",req:1},{k:"bankHolder",l:"예금주",req:1,hint:"계좌가 다른 상품은 한 장바구니에 함께 담을 수 없어요(손님이 두 번 입금하지 않도록)."},
     {k:"stockTotal",l:"총 재고 (옵션 없는 상품)",t:"stocktotal",hint:"처음에 준비한 전체 수량을 적어요. 판매와 잔여는 주문 기록으로 자동 계산돼요. 비워 두면 수량 제한 없이 팔려요. 아래에 옵션을 넣으면 이 칸은 쓰지 않아요."},
     {k:"optionLabel",l:"옵션 이름",hint:"손님 화면에 옵션 위에 보이는 이름이에요. 비워 두면 의류는 '사이즈', 티켓은 '좌석', 일반상품은 '옵션'으로 보여요."},
     {k:"options",l:"사이즈별 재고",t:"options",wide:1,hint:"사이즈마다 '총 재고'만 입력하세요. 판매(입금완료 이후 주문)와 잔여는 자동으로 계산돼요. 입금대기 중인 주문은 참고로 따로 보여 줘요. 총 재고를 비우면 그 사이즈는 수량 제한 없이 팔려요. 손님 화면에는 수량이 보이지 않고, 잔여가 0이면 SOLD OUT만 표시돼요."},{k:"summary",l:"한 줄 소개",wide:1},
@@ -1607,7 +1675,7 @@ const SCHEMA = {
     {k:"preorder",l:"사전 주문 제작 여부",t:"select",opts:["사전 주문 제작 (환불 불가)"],wide:1,types:["의류","일반상품"],hint:"고르면 상품 화면, 주문서, 주문 조회에 '사전 주문 제작 상품으로 환불 불가' 안내가 표시돼요."},
     {k:"termsTitle",l:"구매 약관 제목",wide:1,hint:"예: 맞춤 제작 상품 구매 약관. 비워 두면 '구매 약관'으로 표시돼요."},
     {k:"terms",l:"구매 약관 내용 (손님 필수 동의)",t:"textarea",rows:7,wide:1,hint:"내용을 적으면 이 상품을 주문할 때 [필수] 동의 체크박스가 나와요. 비워 두면 표시되지 않아요. 빈 줄로 문단을 나눠요."},],
-    sub: x => `${ptypeOf(x)}${isPickup(x) ? " · 현장수령" : x.receive ? " · " + x.receive : ""}, ${won(unit(x))}, ${saleState(x)}${x.saleEnd ? ` (마감 ${fmtLocal(x.saleEnd)})` : ""}`, stock: x => stockTable(x), badge: x => soldOut(x) ? "SOLD OUT" : (hasOpts(x) && x.options.some(optSoldOut) ? "일부 SOLD OUT" : ""), thumb: x => (x.images || [])[0] },
+    sub: x => `${ptypeOf(x)}${isPickup(x) ? " · 현장수령" : x.receive ? " · " + x.receive : ""}, ${won(unit(x))}, 배송비 ${isPickup(x) ? "없음" : shipText(x)}, ${x.bankName || (pBank(x) || {}).name || "계좌 미설정"}, ${saleState(x)}${x.saleEnd ? ` (마감 ${fmtLocal(x.saleEnd)})` : ""}`, stock: x => stockTable(x), badge: x => soldOut(x) ? "SOLD OUT" : (hasOpts(x) && x.options.some(optSoldOut) ? "일부 SOLD OUT" : ""), thumb: x => (x.images || [])[0] },
   videos: { label: "영상", fields: [
     {k:"title",l:"제목",req:1,wide:1},{k:"repertoire",l:"작품 (선택)",t:"select",opts:["승무","살풀이춤","태평무","화랭이춤","검무","소고춤","개인발표회","창작, 협업","기타"]},{k:"category",l:"분류",t:"select",opts:["하이라이트","무대 영상","비하인드"],req:1},{k:"date",l:"공연일",t:"date"},
     {k:"url",l:"YouTube 링크",req:1,wide:1,hint:"youtube.com/watch?v=… 또는 youtu.be/… 주소를 붙여 넣으세요."},{k:"venue",l:"장소",wide:1},{k:"description",l:"설명",t:"textarea",wide:1}],
@@ -1957,8 +2025,22 @@ async function logAccess(action){
 const IDLE_MS = 20 * 60 * 1000;
 let dayNow = ""; setInterval(() => { const d = todayKST(); if (dayNow && d !== dayNow) softRender(); dayNow = d; }, 60000);
 setInterval(() => { if (S.mkt && !stepUpValid()){ S.mkt = null; if (route()[1] === "marketing") render(); } }, 15000);
-["click", "keydown", "scroll", "touchstart"].forEach(ev => document.addEventListener(ev, () => { S.lastAct = Date.now(); }, {passive: true}));
-setInterval(() => { if (S.authed && Date.now() - (S.lastAct || 0) > IDLE_MS){ logout(); toast("20분 동안 사용하지 않아 자동으로 로그아웃했어요"); } }, 30000);
+/* 마우스 움직임, 스크롤, 타이핑, 터치 모두 '사용 중'으로 봄. 여러 탭에서도 공유 */
+let actWrite = 0;
+function markActive(){
+  const now = Date.now(); S.lastAct = now;
+  if (S.authed && now - actWrite > 15000){ actWrite = now; try { localStorage.setItem("gw-admin-act", String(now)); } catch(e){} }
+  if (S.idleWarned){ S.idleWarned = false; }
+}
+["click", "keydown", "input", "scroll", "wheel", "touchstart", "pointerdown", "mousemove", "focusin"].forEach(ev => document.addEventListener(ev, markActive, {passive: true, capture: true}));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) markActive(); });
+const lastActive = () => { let shared = 0; try { shared = Number(localStorage.getItem("gw-admin-act")) || 0; } catch(e){} return Math.max(S.lastAct || 0, shared); };
+setInterval(() => {
+  if (!S.authed) return;
+  const idle = Date.now() - lastActive();
+  if (idle > IDLE_MS){ logout().then(() => toast("20분 동안 아무 움직임이 없어 자동으로 로그아웃했어요")); return; }
+  if (idle > IDLE_MS - 60000 && !S.idleWarned){ S.idleWarned = true; toast("1분 뒤 자동 로그아웃돼요. 마우스를 움직이거나 아무 키나 누르면 계속 사용할 수 있어요."); }
+}, 15000);
 let adminUnsubs = [];
 function startAdmin(){
   if (S.adminStarted || !S.online) return; S.adminStarted = true; S.lastAct = Date.now();
@@ -1992,7 +2074,7 @@ function adminGroups(){
     {g: "Artist", ko: "아티스트", items: [["artistProfile", "프로필 · 이력 · 수상"], ["performances", "공연 레퍼런스"]]},
     {g: "Archive", ko: "아카이브", items: [["videos", "영상"], ["gallery", "갤러리"]]},
     {g: "News", ko: "주요소식", items: [["schedules", "공연일정"], ["news", "언론보도"]]},
-    {g: "Store", ko: "스토어", items: [["orders", "주문", newOrders], ["products", "상품 · 재고"], ["store", "배송비 · 입금 계좌"], ["marketing", "마케팅DB"]]},
+    {g: "Store", ko: "스토어", items: [["orders", "주문", newOrders], ["products", "상품 · 재고"], ["marketing", "마케팅DB"]]},
     {g: "Contact", ko: "문의", items: [["inquiries", "받은 문의", newInq]]},
     {g: "사이트 전체", ko: "여러 페이지 공통", common: true, items: [["basic", "기본 정보 (이름 · 연락처 · SNS)"], ["brand", "홈페이지 제목 · 파비콘"], ["footer", "풋터 (사업자 정보 · 저작권)"], ["terms", "약관 (개인정보 · 마케팅 동의)"], ["meta", "검색 · 공유 설정"]]},
     {g: "운영", ko: "관리자 전용", items: [["stats", "방문 통계"], ["account", "보안 · 계정"]]}
@@ -2008,7 +2090,7 @@ function adminGuide(){
     ["Artist 아티스트", "프로필 사진, 이력, 수상, 지도 경력, 공연 레퍼런스", `${L("artistProfile", "프로필 · 이력 · 수상")} · ${L("performances", "공연 레퍼런스")}`],
     ["Archive 아카이브", "공연 영상, 무대 사진 (메인페이지 '아카이브'에도 표시)", `${L("videos", "영상")} · ${L("gallery", "갤러리")}`],
     ["News 주요소식", "공연일정(메인페이지에도 표시), 언론보도(메인페이지 '뉴스'에도 표시)", `${L("schedules", "공연일정")} · ${L("news", "언론보도")}`],
-    ["Store 스토어", "상품, 사이즈별 재고, 배송비, 입금 계좌, 주문 처리", `${L("products", "상품 · 재고")} · ${L("store", "배송비 · 입금 계좌")} · ${L("orders", "주문")}`],
+    ["Store 스토어", "상품, 사이즈별 재고, 배송비, 입금 계좌, 주문 처리", `${L("products", "상품 · 재고 · 배송비 · 입금 계좌")} · ${L("orders", "주문")}`],
     ["Contact 문의", "공연·워크숍, 협업, 스토어 문의 접수", L("inquiries", "받은 문의")],
     ["여러 페이지 공통", "무용가 이름과 직함, 연락처, SNS, 맨 위 제목, 파비콘, 풋터, 약관, 검색 노출", `${L("basic", "기본 정보")} · ${L("brand", "제목 · 파비콘")} · ${L("footer", "풋터")} · ${L("terms", "약관")} · ${L("meta", "검색 · 공유")}`]
   ];
@@ -2024,6 +2106,7 @@ function vAdmin(tab){
   if (!S.authed) return vLogin();
   if (tab === "profile") tab = "basic";
   if (tab === "projects") tab = "guide";
+  if (tab === "store") tab = "products";
   tab = tab || "guide";
   const groups = adminGroups();
   const grp = groups.find(g => g.items.some(it => it[0] === tab)) || groups[0];
@@ -2162,12 +2245,20 @@ async function savePerfRefs(){
   catch(e){ toast(failMsg(e, "저장하지 못했어요.")); }
   S.busy = false; render();
 }
+/* 새 상품 기본값: 예전 공통 설정 또는 가장 최근 상품의 배송비, 계좌 */
+function prodDefaults(){
+  const last = [...S.products].sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0)).find(p => p.bankAccount);
+  const st = S.store || {};
+  return {shipMode: last ? last.shipMode : (st.shipMode || "유료"), shipFee: last ? last.shipFee ?? "" : (st.shipFee ?? 3000), freeOver: last ? last.freeOver ?? "" : (st.freeOver ?? ""),
+    bankName: last ? last.bankName : (st.bankName || ""), bankAccount: last ? last.bankAccount : (st.bankAccount || ""), bankHolder: last ? last.bankHolder : (st.bankHolder || "")};
+}
 function visibleFields(col, d){
   const sch = SCHEMA[col]; if (col !== "products") return sch.fields;
   const t = PTYPES.includes(d.ptype) ? d.ptype : "의류";
   const optL = {"의류": "사이즈별 재고", "티켓": "좌석(구역)별 재고", "일반상품": "옵션별 재고"}[t];
   const optH = {"의류": "사이즈마다 '총 재고'만 입력하세요.", "티켓": "자유석, R석, A구역처럼 좌석(구역) 이름과 '총 재고'를 입력하세요. 한 종류뿐이면 '자유석' 한 줄만 넣으세요.", "일반상품": "색상, 종류 등 옵션 이름과 '총 재고'를 입력하세요. 옵션이 없는 상품이면 비워 두고 위의 '총 재고'를 쓰세요."}[t];
-  return sch.fields.filter(f => !f.types || f.types.includes(t)).map(f => f.k === "options" ? {...f, l: optL, hint: optH + " 판매(입금완료 이후 주문)와 잔여는 자동으로 계산되고, 잔여가 0이 되면 자동으로 SOLD OUT 처리돼요. 손님 화면에는 수량이 보이지 않아요.", ptype: t} : f);
+  const pickup = t === "티켓" && d.receive === "현장수령", free = d.shipMode === "무료";
+  return sch.fields.filter(f => (!f.types || f.types.includes(t)) && !(f.ship && pickup) && !(f.paid && free)).map(f => f.k === "options" ? {...f, l: optL, hint: optH + " 판매(입금완료 이후 주문)와 잔여는 자동으로 계산되고, 잔여가 0이 되면 자동으로 SOLD OUT 처리돼요. 손님 화면에는 수량이 보이지 않아요.", ptype: t} : f);
 }
 function adminCollection(col){
   const sch = SCHEMA[col];
@@ -2483,8 +2574,8 @@ function view(){
     case "portfolio": return vPortfolio(a);
     case "store": return vStore();
     case "product": return vProduct(a);
-    case "cart": return vCart();
-    case "checkout": return vCheckout();
+    case "cart": location.replace("#/store"); return "";
+    case "checkout": if (!isBuyNow()){ location.replace("#/store"); return ""; } return vCheckout();
     case "order": return vOrderDone(a);
     case "orders": return vOrders();
     case "news": return vNews(a);
@@ -2688,6 +2779,7 @@ document.addEventListener("click", async e => {
     case "pr-import": if (!S.authed) break; S.drafts.perfRefs = sortRefs((S.performances || []).map(x => ({year: String(x.date || "").slice(0, 4), title: x.title || "", note: [x.venue, x.role].filter(Boolean).join(", ")}))); toast("예전 기록을 표로 불러왔어요. 확인 후 저장을 눌러 주세요"); render(); break;
     case "pr-save": if (S.authed) savePerfRefs(); break;
     case "copy": copyText(el.dataset.v || ""); break;
+    case "share": shareProduct(id); break;
     case "pzoom": { const p = findP(id); if (!p) break; const imgs = (p.images || []).map(u => ({src: blob(u), cap: p.name})); if (!imgs.length) break; S.modal = {type: "viewer", list: imgs, i: Number(el.dataset.i) || 0}; render(); document.querySelector(".viewer [data-act=close]")?.focus(); break; }
     case "vstep": { const n = S.modal.list.length; S.modal.i = (S.modal.i + Number(el.dataset.d) + n) % n; render(); break; }
     case "postcode": openPostcode(); break;
@@ -2744,14 +2836,30 @@ document.addEventListener("click", async e => {
     }
     case "optsel": { S.optSel[id] = el.dataset.v; const p = findP(id); const max = stockOf(p, el.dataset.v); const k = qtyKey(id); if (max !== Infinity && (S.qty[k] || 1) > max) S.qty[k] = Math.max(1, max); render(); break; }
     case "addcart": { const k = qtyKey(id); if (addToCart(id, selQty(id))){ delete S.qty[k]; render(); } break; }
-    case "buynow": { const k = qtyKey(id); if (buyNow(id, selQty(id))){ delete S.qty[k]; location.hash = "#/checkout/now"; } break; }
+    case "buynow": { if (buyNow(id)){ delete S.qty[qtyKey(id)]; S.pick[id] = []; location.hash = "#/checkout/now"; } break; }
+    case "optpick": {
+      const p = findP(id), name = el.dataset.v, o = findOpt(p, name); if (!o || optSoldOut(o)) break;
+      const L = pickLines(id), ex = L.find(l => l.opt === name);
+      if (ex){ toast(`'${name}'은(는) 이미 골랐어요. 아래에서 수량을 바꿔 주세요`); break; }
+      if (L.reduce((a, l) => a + l.qty, 0) + 1 > maxOf(p)){ toast(`1회 최대 ${maxOf(p)}${unitWord(p)}까지 구매할 수 있어요`); break; }
+      L.push({opt: name, qty: 1}); render(); break;
+    }
+    case "pkq": {
+      const p = findP(id), L = pickLines(id), l = L[Number(el.dataset.i)]; if (!l) break;
+      const nq = l.qty + Number(el.dataset.d); if (nq < 1) break;
+      const others = L.reduce((a, x) => a + x.qty, 0) - l.qty, cap = Math.min(stockOf(p, l.opt), maxOf(p) - others);
+      if (nq > cap){ toast(maxOf(p) - others <= stockOf(p, l.opt) ? `1회 최대 ${maxOf(p)}${unitWord(p)}까지 구매할 수 있어요` : "주문 가능한 최대 수량이에요"); break; }
+      l.qty = nq; render(); break;
+    }
+    case "pkrm": pickLines(id).splice(Number(el.dataset.i), 1); render(); break;
     case "cq": { const l = S.cart.find(x => lineKey(x) === id); if (!l) break; const p = findP(l.pid); l.qty = Math.max(1, l.qty + Number(el.dataset.d)); if (p){ const max = stockOf(p, l.opt); if (max !== Infinity) l.qty = Math.min(l.qty, Math.max(1, max)); const mx = maxOf(p), others = S.cart.filter(x => x.pid === l.pid && x !== l).reduce((a, x) => a + x.qty, 0); if (others + l.qty > mx){ l.qty = Math.max(1, mx - others); toast(`1회 최대 ${mx}${unitWord(p)}까지 구매할 수 있어요`); } } saveCart(); render(); break; }
     case "crm": S.cart = S.cart.filter(x => lineKey(x) !== id); saveCart(); render(); break;
     case "new": if (el.dataset.col === "popups" && S.popups.length >= POP_MAX){ toast(`팝업은 최대 ${POP_MAX}개까지 등록할 수 있어요`); break; }
-      S.edit = {col: el.dataset.col, id: null}; S.drafts.edit = el.dataset.col === "products" ? {ptype: "의류", status: "판매중", images: []} : el.dataset.col === "popups" ? {kind: "이미지", fit: "가로 폭에 맞춤 (세로 스크롤)", start: todayKST(), end: todayKST()} : {}; render(); window.scrollTo(0, 0); break;
+      S.edit = {col: el.dataset.col, id: null}; S.drafts.edit = el.dataset.col === "products" ? {ptype: "의류", status: "판매중", images: [], ...prodDefaults()} : el.dataset.col === "popups" ? {kind: "이미지", fit: "가로 폭에 맞춤 (세로 스크롤)", start: todayKST(), end: todayKST()} : {}; render(); window.scrollTo(0, 0); break;
     case "edit": { const x = S[el.dataset.col].find(y => y.id === id); S.edit = {col: el.dataset.col, id}; const dd = clone(x); delete dd.id;
       if (el.dataset.col === "products"){
         dd.ptype = ptypeOf(x);
+        const df = prodDefaults(); ["shipMode", "shipFee", "freeOver", "bankName", "bankAccount", "bankHolder"].forEach(k => { if (dd[k] === undefined || dd[k] === null || dd[k] === "") { if (k === "freeOver" && dd.shipMode) return; dd[k] = df[k]; } });
         if (Array.isArray(dd.options)) dd.options = dd.options.map(o => { const t = totalOf(id, o); return {name: o.name, total: t === null ? "" : t}; });
         const t0 = totalOf(id, {name: "", total: dd.stockTotal, stock: dd.stock}); dd.stockTotal = t0 === null ? "" : t0;
       }
@@ -2805,7 +2913,7 @@ document.addEventListener("change", async e => {
   const t = e.target;
   if (t.dataset.actChange === "ssort"){ S.storeSort = t.value; render(); }
   else if (t.name === "shipMode" && t.closest("[data-draft=store]")) render();
-  else if (t.name === "ptype" && t.closest("[data-draft=edit]")) render();
+  else if ((t.name === "ptype" || t.name === "receive" || t.name === "shipMode") && t.closest("[data-draft=edit]")) render();
   else if (t.name === "courier" && t.closest("[data-form=ship-save]")) render();
   else if (["ostatus","qstatus"].includes(t.dataset.actChange) && !S.authed) return;
   else if (t.dataset.actChange === "ostatus"){
@@ -2867,7 +2975,7 @@ const normNo = v => String(v || "").trim().toUpperCase();
 const keyByPhone = (phone, name, pw) => lookupKey(`P|${normPhone(phone)}|${normName(name)}|${pw}`);
 const keyByOrder = (name, no, pw) => lookupKey(`O|${normName(name)}|${normNo(no)}|${pw}`);
 function orderSummary(no, o){
-  return {no, createdAt: o.createdAt, items: o.items.map(i => ({name: i.name, opt: i.opt || "", qty: i.qty, price: i.price, pre: !!i.pre, recv: i.recv || ""})), subtotal: o.subtotal, shipping: o.shipping, total: o.total, status: o.status};
+  return {no, createdAt: o.createdAt, items: o.items.map(i => ({name: i.name, opt: i.opt || "", qty: i.qty, price: i.price, pre: !!i.pre, recv: i.recv || ""})), subtotal: o.subtotal, shipping: o.shipping, total: o.total, status: o.status, bank: o.bank || null};
 }
 
 /* ---------- actions ---------- */
@@ -2885,6 +2993,7 @@ async function placeOrder(form){
   if (!S.online || !S.uid){ toast("잠시 후 다시 시도해 주세요. 연결을 준비하고 있어요."); return; }
   const ls = checkoutLines(), fromBuyNow = isBuyNow();
   for (const l of ls){ if (lineBad(l)){ toast(`'${l.p.name}${l.opt ? " " + l.opt : ""}' 재고가 부족해요. 장바구니를 확인해 주세요.`); return; } }
+  if (banksOf(ls).length > 1){ toast("입금 계좌가 다른 상품은 따로 주문해 주세요."); return; }
   const d = draft("checkout"), t = totals(ls), pw = S.keep.opw;
   const now = new Date();
   const no = "SM" + now.getFullYear().toString().slice(2) + String(now.getMonth()+1).padStart(2,"0") + String(now.getDate()).padStart(2,"0") + "-" + Array.from(crypto.getRandomValues(new Uint8Array(4)), b => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 32]).join("");
@@ -2906,7 +3015,8 @@ async function placeOrder(form){
       items: ls.map(l => { const it = {pid: l.pid, name: cut(l.p.name, 100), price: unit(l.p), qty: l.qty}; if (l.opt) it.opt = cut(l.opt, 40); if (l.p.preorder) it.pre = true; if (ptypeOf(l.p) === "티켓"){ it.kind = "티켓"; if (l.p.receive) it.recv = l.p.receive; } return it; }),
       subtotal: t.sub, shipping: t.ship, total: t.total,
       buyer: needsShip(ls) ? {name, phone, email: cut(d.email, 100), zip: cut(d.zip, 10), address: cut(d.address, 200), address2: cut(d.address2, 200), memo: cut(d.memo, 300)} : {name, phone, email: cut(d.email, 100), zip: "", address: "현장수령", address2: "", memo: cut(d.memo, 300)},
-      pay: "무통장입금", status: "입금대기", stockDeducted: false, createdAt: at
+      pay: "무통장입금", status: "입금대기", stockDeducted: false, createdAt: at,
+      bank: (() => { const b = banksOf(ls)[0]; return b ? {name: cut(b.name, 40), account: cut(b.account, 200), holder: cut(b.holder, 40)} : {name: "", account: "", holder: ""}; })()
     };
     const sum = orderSummary(no, order); sum.sk = k2;
     const b = writeBatch(fdb);
@@ -2917,7 +3027,7 @@ async function placeOrder(form){
     b.set(doc(fdb, "lookups/" + k2), {orders: {[no]: sum}, updatedAt: Date.now()});
     await withTimeout(b.commit());
     S.lastOrder = sum; S.drafts.checkout = null; S.keep = {};
-    if (fromBuyNow) S.buyNow = null; else { S.cart = []; saveCart(); }
+    S.buyNow = null;
     S.busy = false; location.hash = "#/order/" + no;
   } catch(err){ S.busy = false; render(); toast(failMsg(err, "주문을 보내지 못했어요.")); }
 }
@@ -3105,9 +3215,9 @@ async function setInqStatus(qid, status){
 }
 /* the price a customer saw vs. the current catalogue — flags tampered or stale totals */
 function expectedTotal(o){
-  let sub = 0;
-  for (const it of o.items || []){ const p = findP(it.pid); if (!p) return null; sub += unit(p) * (Number(it.qty) || 0); }
-  return sub + shipFor(sub);
+  const lines = [];
+  for (const it of o.items || []){ const p = findP(it.pid); if (!p) return null; lines.push({pid: it.pid, p, qty: Number(it.qty) || 0}); }
+  return totals(lines).total;
 }
 
 /* ---------- data ---------- */
