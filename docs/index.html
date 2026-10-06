@@ -381,6 +381,38 @@ p{margin:0 0 1em}
 .adm-pill button:hover{filter:brightness(1.1)}
 @media (max-width:900px){.adm-pill{margin-left:0;margin-right:8px}.adm-pill a{padding:6px 8px}}
 @media (max-width:380px){.adm-pill a{display:none}.adm-pill button{border-left:0}}
+.ptag{font-size:.75rem;color:var(--muted);margin-top:10px}
+.soldout.soon{background:var(--brass);color:#111}
+.recv-tag{display:inline-block;font-size:.8rem;font-weight:600;padding:3px 10px;border:1px solid var(--brass);color:var(--brass);margin:0 0 12px}
+.recv-tag.pickup{border-color:var(--kasa);color:#fff;background:var(--kasa)}
+.recv-tag.sm{font-size:.7rem;padding:1px 6px;margin:0 0 0 4px;vertical-align:1px}
+.zipbox{display:flex;gap:6px}
+.zipbox input{flex:1;min-width:0}
+.shipbox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;max-width:300px}
+.shipbox select,.shipbox input{padding:6px 8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:inherit;font-size:.82rem;min-width:0}
+.shipbox select{flex:1 1 120px}.shipbox input{flex:1 1 130px}
+.track{color:var(--ink);text-decoration:underline;text-underline-offset:3px;font-variant-numeric:tabular-nums}
+.ocard-track{margin:10px 0 0;font-size:.9rem}
+.bank-row{display:grid;grid-template-columns:96px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);text-align:left}
+.bank-row span{color:var(--muted);font-size:.88rem}
+.bank-row b{font-variant-numeric:tabular-nums;word-break:break-all}
+.copy-btn{border:1px solid var(--line);background:none;color:var(--ink);padding:5px 12px;font-size:.8rem;cursor:pointer;border-radius:999px}
+.copy-btn:hover{border-color:var(--ink)}
+.zoomable{position:relative;display:block;width:100%;padding:0;border:0;cursor:zoom-in;background:var(--surface)}
+.zoom-hint{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:.75rem;padding:4px 8px;opacity:.85}
+.modal.viewer{background:rgba(5,5,6,.96);display:flex;align-items:center;justify-content:center;padding:0}
+.v-fig{margin:0;max-width:92vw;max-height:88svh;display:flex;flex-direction:column;align-items:center;gap:10px}
+.v-fig img{max-width:92vw;max-height:80svh;width:auto;height:auto;object-fit:contain;user-select:none}
+.v-fig figcaption{color:#ddd;font-size:.85rem}
+.v-close{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);right:14px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.4);color:#fff;font-size:1.1rem;cursor:pointer;z-index:2}
+.v-nav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:64px;border:0;background:rgba(0,0,0,.35);color:#fff;font-size:2.2rem;line-height:1;cursor:pointer;z-index:2}
+.v-nav.prev{left:8px}.v-nav.next{right:8px}
+.v-nav:hover,.v-close:hover{background:rgba(0,0,0,.65)}
+@media (max-width:560px){.v-nav{width:40px;height:56px;font-size:1.8rem}}
+.pc-modal{max-width:520px;padding:12px}
+.pc-modal .modal-top{justify-content:space-between;align-items:center}
+.pc-modal .modal-top button{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+#pc-box{height:min(520px,72svh);background:#fff}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -681,7 +713,13 @@ const ytId = u => { const m = String(u || "").match(/(?:youtu\.be\/|v=|embed\/|s
 /* shipping: set in admin → 스토어 설정 (site/store). defaults until loaded */
 const shipCfg = () => { const c = S.store || {}; return {free: c.shipMode === "무료", fee: Math.max(0, Number(c.shipFee ?? 3000) || 0), over: c.freeOver === null || c.freeOver === "" || c.freeOver === undefined ? null : Math.max(0, Number(c.freeOver) || 0)}; };
 function shipFor(sub){ const c = shipCfg(); if (sub <= 0 || c.free || c.fee === 0) return 0; if (c.over !== null && c.over > 0 && sub >= c.over) return 0; return c.fee; }
-const bankText = () => String((S.store && S.store.bank) || S.profile.bank || "").trim();
+const bankParts = () => { const st = S.store || {}; return st.bankName || st.bankAccount ? {name: String(st.bankName || "").trim(), account: String(st.bankAccount || "").trim(), holder: String(st.bankHolder || "").trim()} : null; };
+const bankText = () => { const b = bankParts(); if (b) return `${b.name} ${b.account}${b.holder ? ` (예금주 ${b.holder})` : ""}`.trim(); return String((S.store && S.store.bank) || S.profile.bank || "").trim(); };
+async function copyText(t){
+  try { await navigator.clipboard.writeText(t); }
+  catch(e){ const ta = document.createElement("textarea"); ta.value = t; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch(_){} ta.remove(); }
+  toast(`복사했어요: ${t}`);
+}
 const mktConsent = () => { const t = String(S.profile.mktText || "").trim(); return t ? {title: String(S.profile.mktTitle || "").trim() || "개인정보 마케팅 활용 동의", text: t} : null; };
 function shipText(){ const c = shipCfg(); if (c.free || c.fee === 0) return "무료"; return c.over ? `${won(c.fee)} (${won(c.over)} 이상 무료)` : won(c.fee); }
 
@@ -788,7 +826,25 @@ function imgOr(id, seed, label){ return id ? `<img src="${blob(id)}" alt="${esc(
 const unit = p => (Number(p.salePrice) > 0 && Number(p.salePrice) < Number(p.price)) ? Number(p.salePrice) : Number(p.price) || 0;
 /* options (e.g. sizes): [{name:"S", stock:3}, ...]; stock null = not tracked */
 const hasOpts = p => Array.isArray(p.options) && p.options.length > 0;
-const optLabel = p => (p.optionLabel || "사이즈");
+const PTYPES = ["의류", "티켓", "일반상품"];
+const ptypeOf = p => PTYPES.includes(p.ptype) ? p.ptype : ((Array.isArray(p.options) && p.options.length && (p.optionLabel || "사이즈") === "사이즈") ? "의류" : "일반상품");
+const optLabel = p => (p.optionLabel || ({"의류": "사이즈", "티켓": "좌석", "일반상품": "옵션"})[ptypeOf(p)]);
+const unitWord = p => ptypeOf(p) === "티켓" ? "매" : "개";
+const maxOf = p => { const n = Number(p.maxPerOrder); return ptypeOf(p) !== "의류" && n > 0 ? n : Infinity; };
+const isPickup = p => ptypeOf(p) === "티켓" && p.receive === "현장수령";
+/* 'YYYY-MM-DDTHH:mm' (한국 시간)을 시각으로 */
+const kstMs = v => { if (!v) return NaN; return Date.parse(String(v).length === 16 ? v + ":00+09:00" : v); };
+const fmtLocal = v => { const t = kstMs(v); return isNaN(t) ? "" : fmtDT(t); };
+/* 판매 상태: 숨김 / 판매예정 / 판매마감 / SOLD OUT / 판매중 */
+function saleState(p){
+  if (p.status === "숨김") return "숨김";
+  const now = Date.now(), st = kstMs(p.saleStart), en = kstMs(p.saleEnd);
+  if (!isNaN(st) && now < st) return "판매예정";
+  if (!isNaN(en) && now >= en) return "판매마감";
+  if (soldOut(p)) return "SOLD OUT";
+  return "판매중";
+}
+const buyable = p => saleState(p) === "판매중";
 const findOpt = (p, name) => hasOpts(p) ? p.options.find(o => o.name === name) : null;
 const optTracked = o => o && o.stock !== null && o.stock !== undefined && o.stock !== "";
 const optSoldOut = o => optTracked(o) && Number(o.stock) <= 0;
@@ -828,15 +884,27 @@ function priceHtml(p){
 }
 function cartLines(){ return S.cart.map(l => ({...l, p: findP(l.pid)})).filter(l => l.p && l.p.status !== "숨김"); }
 /* a cart line can't be ordered if the product/option is gone or sold out */
-const lineBad = l => soldOut(l.p) || (hasOpts(l.p) && (!findOpt(l.p, l.opt) || optSoldOut(findOpt(l.p, l.opt)))) || l.qty > stockOf(l.p, l.opt);
+function lineWhy(l){
+  const ss = saleState(l.p);
+  if (ss === "판매마감") return "판매가 마감된 상품이에요. 삭제 후 주문해 주세요.";
+  if (ss === "판매예정") return `${fmtLocal(l.p.saleStart)}부터 구매할 수 있어요.`;
+  if (ss !== "판매중" || stockOf(l.p, l.opt) === 0) return "SOLD OUT 되었어요. 삭제 후 주문해 주세요.";
+  if (overMax(l)) return `1회 최대 ${maxOf(l.p)}${unitWord(l.p)}까지 구매할 수 있어요. 수량을 줄여 주세요.`;
+  return "주문 가능한 수량보다 많아요. 수량을 줄여 주세요.";
+}
+const overMax = l => ((isBuyNow() && S.buyNow) ? [S.buyNow] : S.cart).filter(x => x.pid === l.pid).reduce((a, x) => a + x.qty, 0) > maxOf(l.p);
+const lineBad = l => !buyable(l.p) || (hasOpts(l.p) && (!findOpt(l.p, l.opt) || optSoldOut(findOpt(l.p, l.opt)))) || l.qty > stockOf(l.p, l.opt) || overMax(l);
 const cartCount = () => S.cart.reduce((s, l) => s + l.qty, 0);
-function totals(ls){ const sub = ls.reduce((s, l) => s + unit(l.p) * l.qty, 0); const ship = shipFor(sub); return {sub, ship, total: sub + ship}; }
+const needsShip = ls => ls.some(l => !isPickup(l.p));
+function totals(ls){ const sub = ls.reduce((s, l) => s + unit(l.p) * l.qty, 0); const shipSub = ls.filter(l => !isPickup(l.p)).reduce((s, l) => s + unit(l.p) * l.qty, 0); const ship = needsShip(ls) ? shipFor(shipSub) : 0; return {sub, ship, total: sub + ship}; }
 /* the product page quantity belongs to one product + one size */
 const qtyKey = pid => pid + "|" + (S.optSel[pid] || "");
 const selQty = pid => S.qty[qtyKey(pid)] || 1;
 /* validates the current selection; returns {p, opt, max} or null (and tells the customer why) */
 function pickSelection(pid){
-  const p = findP(pid); if (!p || soldOut(p)){ toast("SOLD OUT 된 상품이에요"); return null; }
+  const p = findP(pid); if (!p) return null;
+  const ss = saleState(p);
+  if (ss !== "판매중"){ toast(ss === "판매예정" ? `${fmtLocal(p.saleStart)}부터 구매할 수 있어요` : ss === "판매마감" ? "판매가 마감된 상품이에요" : "SOLD OUT 된 상품이에요"); return null; }
   let opt = "";
   if (hasOpts(p)){
     opt = S.optSel[pid] || "";
@@ -851,6 +919,8 @@ function addToCart(pid, qty){
   const {opt, max} = sel, label = opt ? `${opt} ` : "";
   const ex = S.cart.find(l => l.pid === pid && (l.opt || "") === opt);
   const before = ex ? ex.qty : 0;
+  const mx = maxOf(sel.p), others = S.cart.filter(l => l.pid === pid && (l.opt || "") !== opt).reduce((a, l) => a + l.qty, 0);
+  if (others + before + qty > mx){ toast(`이 상품은 1회 최대 ${mx}${unitWord(sel.p)}까지 구매할 수 있어요`); if (others + before >= mx) return false; qty = mx - others - before; }
   const q = Math.min(before + qty, max);
   if (q <= before){ toast(`주문 가능한 수량을 모두 담았어요 (장바구니에 ${before}개)`); return false; }
   if (ex) ex.qty = q; else S.cart.push(opt ? {pid, opt, qty: q} : {pid, qty: q});
@@ -864,6 +934,7 @@ function addToCart(pid, qty){
 function buyNow(pid, qty){
   const sel = pickSelection(pid); if (!sel) return false;
   if (qty > sel.max){ toast("주문 가능한 수량보다 많아요. 수량을 줄여 주세요"); return false; }
+  if (qty > maxOf(sel.p)){ toast(`이 상품은 1회 최대 ${maxOf(sel.p)}${unitWord(sel.p)}까지 구매할 수 있어요`); return false; }
   S.buyNow = sel.opt ? {pid, opt: sel.opt, qty} : {pid, qty};
   return true;
 }
@@ -929,8 +1000,9 @@ function videoCard(v){
     <div class="vmeta">${fmtDate(v.date)}${v.venue ? `, ${esc(v.venue)}` : ""}${id ? "" : " (영상 링크 준비 중)"}</div></button>`;
 }
 function productCard(p){
-  return `<a class="pcard" href="#/product/${encodeURIComponent(p.id)}"><div class="pimg">${imgOr((p.images || [])[0], p.id, p.name)}${soldOut(p) ? `<span class="soldout">SOLD OUT</span>` : (hasOpts(p) && p.options.some(optSoldOut) ? `<span class="soldout part">${esc(p.options.filter(optSoldOut).map(o => o.name).join(", "))} SOLD OUT</span>` : "")}</div>
-  <div class="pname">${esc(p.name)}</div><div class="pprice">${priceHtml(p)}</div></a>`;
+  const ss = saleState(p);
+  return `<a class="pcard" href="#/product/${encodeURIComponent(p.id)}"><div class="pimg">${imgOr((p.images || [])[0], p.id, p.name)}${ss === "판매마감" ? `<span class="soldout">판매 마감</span>` : ss === "판매예정" ? `<span class="soldout soon">판매 예정</span>` : soldOut(p) ? `<span class="soldout">SOLD OUT</span>` : (hasOpts(p) && p.options.some(optSoldOut) ? `<span class="soldout part">${esc(p.options.filter(optSoldOut).map(o => o.name).join(", "))} SOLD OUT</span>` : "")}</div>
+  <div class="ptag">${esc(ptypeOf(p))}${isPickup(p) ? " · 현장수령" : ptypeOf(p) === "티켓" && p.receive ? " · " + esc(p.receive) : ""}</div><div class="pname">${esc(p.name)}</div><div class="pprice">${priceHtml(p)}</div></a>`;
 }
 /* 공연일정: 새 '공연일정' 메뉴 + 예전 소식의 '일정' 글을 함께 */
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
@@ -1271,7 +1343,7 @@ function vStore(){
   else if (S.storeSort === "high") list.sort((a, b) => unit(b) - unit(a));
   return `<div class="wrap page-head"><h1>Store</h1><p>전통춤의 선과 색을 일상의 순간으로</p></div>
   <div class="wrap" style="padding-bottom:80px">${offlineNote()}
-    <div class="store-bar"><span class="muted">${list.length}개의 상품</span><a href="#/cart" class="cart-btn" style="margin-left:auto">장바구니 <b>${cartCount()}</b></a>
+    <div class="store-bar"><span class="muted">${list.length}개의 상품</span><a href="#/cart" class="cart-btn" style="margin-left:auto">장바구니 <b>${cartCount()}</b></a><a href="#/orders" class="cart-btn">주문조회</a>
     <label><span class="sr">정렬</span><select class="sort" data-act-change="ssort"><option value="new" ${S.storeSort === "new" ? "selected" : ""}>신상품순</option><option value="low" ${S.storeSort === "low" ? "selected" : ""}>낮은 가격순</option><option value="high" ${S.storeSort === "high" ? "selected" : ""}>높은 가격순</option></select></label></div>
     ${loading()}${list.length ? `<div class="grid g4">${list.map(productCard).join("")}</div>` : (S.loaded ? `<div class="empty">표시할 상품이 없어요.</div>` : "")}
   </div>`;
@@ -1283,19 +1355,26 @@ function vProduct(id){
   const imgs = p.images || [];
   const cur = Math.min(S.pdImg[id] || 0, Math.max(0, imgs.length - 1));
   const q = selQty(id);
-  const so = soldOut(p);
+  const ss = saleState(p), so = ss !== "판매중", pt = ptypeOf(p);
   const opts = hasOpts(p), sel = opts ? findOpt(p, S.optSel[id]) : null;
   return `<div class="wrap"><div class="crumbs" style="display:flex;justify-content:space-between;align-items:center"><a href="#/store">스토어</a><a href="#/cart" class="cart-btn">장바구니 <b>${cartCount()}</b></a></div>
   <div class="pd">
-    <div><div class="pd-main">${imgOr(imgs[cur], p.id, p.name)}</div>
+    <div>${imgs.length ? `<button type="button" class="pd-main zoomable" data-act="pzoom" data-id="${esc(id)}" data-i="${cur}" aria-label="사진 크게 보기">${imgOr(imgs[cur], p.id, p.name)}<span class="zoom-hint" aria-hidden="true">⤢ 크게 보기</span></button>` : `<div class="pd-main">${imgOr(imgs[cur], p.id, p.name)}</div>`}
       ${imgs.length > 1 ? `<div class="thumbs">${imgs.map((im, i) => `<button class="${i === cur ? "on" : ""}" data-act="pdimg" data-id="${esc(id)}" data-i="${i}" aria-label="${i+1}번째 이미지"><img src="${blob(im)}" alt=""></button>`).join("")}</div>` : ""}</div>
     <div>
             <h1>${esc(p.name)}</h1>
       ${p.summary ? `<p class="muted">${esc(p.summary)}</p>` : ""}
       <div class="price-big">${priceHtml(p)}</div>
       ${p.preorder ? `<p class="pre-badge">사전 주문 제작 상품 · 환불 불가</p>` : ""}
-      <dl class="kv">${so ? `<dt>상태</dt><dd>SOLD OUT</dd>` : ""}<dt>배송비</dt><dd>${shipText()}</dd><dt>결제</dt><dd>무통장 입금</dd></dl>
-      ${so ? `<button class="btn" disabled style="width:100%">SOLD OUT</button>` : `
+      ${pt === "티켓" && p.receive ? `<p class="recv-tag ${isPickup(p) ? "pickup" : ""}">${esc(p.receive)}</p>` : ""}
+      <dl class="kv">${so ? `<dt>상태</dt><dd><b>${ss === "판매예정" ? `판매 예정 (${esc(fmtLocal(p.saleStart))} 오픈)` : ss === "판매마감" ? "판매 마감" : "SOLD OUT"}</b></dd>` : ""}
+        ${pt === "티켓" && p.eventAt ? `<dt>공연 일시</dt><dd>${esc(fmtLocal(p.eventAt))}</dd>` : ""}${pt === "티켓" && p.eventVenue ? `<dt>공연 장소</dt><dd>${esc(p.eventVenue)}</dd>` : ""}
+        ${pt === "티켓" && p.receive ? `<dt>수령 방법</dt><dd>${esc(p.receive)}${isPickup(p) ? " (공연 당일 현장에서 수령)" : ""}</dd>` : ""}
+        <dt>배송비</dt><dd>${isPickup(p) ? "없음 (현장수령)" : shipText()}</dd>
+        ${maxOf(p) !== Infinity ? `<dt>구매 제한</dt><dd>1회 최대 ${maxOf(p)}${unitWord(p)}</dd>` : ""}
+        ${p.saleEnd && ss !== "판매마감" ? `<dt>판매 마감</dt><dd>${esc(fmtLocal(p.saleEnd))}</dd>` : ""}
+        <dt>결제</dt><dd>무통장 입금</dd></dl>
+      ${so ? `<button class="btn" disabled style="width:100%">${ss === "판매예정" ? "판매 예정" : ss === "판매마감" ? "판매 마감" : "SOLD OUT"}</button>` : `
       ${opts ? `<div class="optbox"><p class="optlabel" id="opt-${esc(id)}">${esc(optLabel(p))}</p><div class="opts" role="radiogroup" aria-labelledby="opt-${esc(id)}">${p.options.map(o => `<button type="button" role="radio" aria-checked="${sel && sel.name === o.name}" class="${sel && sel.name === o.name ? "on" : ""}" data-act="optsel" data-id="${esc(id)}" data-v="${esc(o.name)}" ${optSoldOut(o) ? 'disabled aria-disabled="true"' : ""}>${esc(o.name)}${optSoldOut(o) ? "<small>SOLD OUT</small>" : ""}</button>`).join("")}</div></div>` : ""}
       <div style="display:flex;justify-content:space-between;align-items:center"><span>수량</span><div class="qty"><button data-act="qty" data-id="${esc(id)}" data-d="-1" aria-label="수량 줄이기">−</button><span aria-live="polite">${q}</span><button data-act="qty" data-id="${esc(id)}" data-d="1" aria-label="수량 늘리기">+</button></div></div>
       <div class="total-line"><span>총 상품 금액</span><b>${won(unit(p) * q)}</b></div>
@@ -1313,7 +1392,7 @@ function vCart(){
   <div class="wrap cart"><div>${ls.map(l => `<div class="cline"><div class="ci">${imgOr((l.p.images || [])[0], l.p.id, l.p.name)}</div>
     <div><a class="cn" href="#/product/${encodeURIComponent(l.pid)}">${esc(l.p.name)}</a>${l.opt ? `<div class="copt">${esc(optLabel(l.p))}: ${esc(l.opt)}</div>` : ""}<div class="muted" style="font-size:.88rem">${won(unit(l.p))}</div>
       <div style="display:flex;gap:14px;align-items:center;margin-top:8px"><div class="qty"><button data-act="cq" data-id="${esc(lineKey(l))}" data-d="-1" aria-label="수량 줄이기">−</button><span>${l.qty}</span><button data-act="cq" data-id="${esc(lineKey(l))}" data-d="1" aria-label="수량 늘리기">+</button></div><button class="linkbtn rm" data-act="crm" data-id="${esc(lineKey(l))}">삭제</button></div>
-      ${lineBad(l) ? `<div style="color:var(--kasa);font-size:.85rem;margin-top:6px">${soldOut(l.p) || stockOf(l.p, l.opt) === 0 ? "SOLD OUT 되었어요. 삭제 후 주문해 주세요." : `주문 가능한 수량보다 많아요. 수량을 줄여 주세요.`}</div>` : ""}</div>
+      ${lineBad(l) ? `<div style="color:var(--kasa);font-size:.85rem;margin-top:6px">${lineWhy(l)}</div>` : ""}</div>
     <div class="cp"><b>${won(unit(l.p) * l.qty)}</b></div></div>`).join("")}</div>
   <aside class="summary"><div class="row"><span>상품 금액</span><span>${won(t.sub)}</span></div><div class="row"><span>배송비</span><span>${t.ship ? won(t.ship) : "무료"}</span></div><div class="row total"><span>결제 예정 금액</span><span>${won(t.total)}</span></div>
     <p class="note">${t.ship ? (shipCfg().over ? `${won(shipCfg().over - t.sub)} 더 담으면 무료 배송이에요.` : "") : "무료 배송이에요."}</p>
@@ -1329,7 +1408,11 @@ function vCheckout(){
   <form class="wrap cart" data-form="checkout" data-draft="checkout" novalidate><div>
     
     <fieldset class="fieldset"><h3>주문자 정보</h3><div class="form">${f("name","이름","text",1)}${f("phone","휴대폰 번호 (숫자만)","tel",1,0,"01012345678")}${f("email","이메일","email",0,1)}</div></fieldset>
-    <fieldset class="fieldset"><h3>배송지</h3><div class="form">${f("zip","우편번호","text",0)}<div></div>${f("address","주소","text",1,1)}${f("address2","상세 주소","text",0,1)}<div class="fld wide"><label for="co-memo">배송 메모</label><input id="co-memo" name="memo" value="${esc(d.memo || "")}" placeholder="예: 문 앞에 놓아 주세요"></div></div></fieldset>
+    ${needsShip(ls) ? `<fieldset class="fieldset"><h3>배송지</h3><div class="form">
+      <div class="fld"><label for="co-zip">우편번호 <i>*</i></label><div class="zipbox"><input id="co-zip" name="zip" value="${esc(d.zip || "")}" inputmode="numeric" placeholder="주소 찾기를 눌러 주세요" required><button type="button" class="btn sm" data-act="postcode">주소 찾기</button></div></div><div></div>
+      ${f("address","주소","text",1,1)}${f("address2","상세 주소","text",0,1,"동, 호수 등")}<div class="fld wide"><label for="co-memo">배송 메모</label><input id="co-memo" name="memo" value="${esc(d.memo || "")}" placeholder="예: 문 앞에 놓아 주세요"></div></div>
+      ${ls.some(l => isPickup(l.p)) ? `<p class="hint" style="margin-top:8px">현장수령 티켓은 공연 당일 현장에서 받으시고, 나머지 상품만 배송돼요.</p>` : ""}</fieldset>`
+    : `<fieldset class="fieldset"><h3>수령 방법</h3><p class="recv-tag pickup">현장수령</p><p class="hint" style="margin-top:8px">이번 주문은 현장수령 티켓만 있어 배송지를 받지 않아요. 공연 당일 현장에서 이름과 휴대폰 번호를 확인한 뒤 전달해 드려요.</p></fieldset>`}
     <fieldset class="fieldset"><h3>주문 조회 비밀번호</h3><div class="form">
       <div class="fld"><label for="co-opw">비밀번호 <i>*</i></label><input id="co-opw" type="password" data-keep="opw" value="${esc(S.keep.opw || "")}" autocomplete="new-password" minlength="6" maxlength="30" required></div>
       <div class="fld"><label for="co-opw2">비밀번호 확인 <i>*</i></label><input id="co-opw2" type="password" data-keep="opw2" value="${esc(S.keep.opw2 || "")}" autocomplete="new-password" maxlength="30" required></div>
@@ -1347,7 +1430,7 @@ function vCheckout(){
     })()}
   </div>
   <aside class="summary">${ls.map(l => `<div class="row"><span>${esc(l.p.name)}${l.opt ? ` (${esc(l.opt)})` : ""} × ${l.qty}</span><span>${won(unit(l.p) * l.qty)}</span></div>`).join("")}
-    <div class="row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:12px"><span>배송비</span><span>${t.ship ? won(t.ship) : "무료"}</span></div>
+    <div class="row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:12px"><span>배송비</span><span>${!needsShip(ls) ? "없음 (현장수령)" : t.ship ? won(t.ship) : "무료"}</span></div>
     <div class="row total"><span>총 결제 금액</span><span>${won(t.total)}</span></div><p class="note"></p>
     <button class="btn kasa" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "주문 보내는 중…" : `${won(t.total)} 주문하기`}</button></aside></form>`;
 }
@@ -1359,7 +1442,9 @@ function vOrderDone(id){
     <p>주문번호 <b class="ono">${esc(o.no)}</b></p>
     <p class="muted">주문일시 ${fmtDT(o.createdAt)}</p>
     <p class="hint">주문번호를 메모해 두세요. 주문 조회는 <b>이름 + 휴대폰 번호 + 비밀번호</b> 또는 <b>이름 + 주문번호 + 비밀번호</b>로 할 수 있어요.</p>
-    <div class="bank"><div class="row" style="display:flex;justify-content:space-between"><span>입금하실 금액</span><b>${won(o.total)}</b></div>${bankText() ? `<p style="margin:10px 0 0">입금 계좌: ${esc(bankText())}</p>` : ""}<p class="hint" style="margin-top:8px">입금이 확인되면 주문 상태가 '결제완료'로 바뀌고 순서대로 발송됩니다.</p></div>
+    <div class="bank">${(() => { const b = bankParts(); const row = (label, val, copy) => `<div class="bank-row"><span>${label}</span><b>${esc(val)}</b>${copy ? `<button type="button" class="copy-btn" data-act="copy" data-v="${esc(copy)}" aria-label="${label} 복사">복사</button>` : ""}</div>`;
+      return row("입금하실 금액", won(o.total), String(o.total)) + (b ? row("은행", b.name, b.name) + row("계좌번호", b.account, b.account.replace(/[^0-9-]/g, "") || b.account) + (b.holder ? row("예금주", b.holder, b.holder) : "") + `<button type="button" class="btn ghost sm" data-act="copy" data-v="${esc(bankText())}" style="margin-top:10px;width:100%">계좌 정보 한 번에 복사</button>` : bankText() ? row("입금 계좌", bankText(), bankText()) : ""); })()}
+      <p class="hint" style="margin-top:10px">입금이 확인되면 주문 상태가 '입금완료'로 바뀌고 순서대로 준비됩니다.</p></div>
     <div class="policy" style="text-align:left"><p>${REFUND_NOTE}</p><p>${PREORDER_NOTE}</p><p>입금 전(입금대기)에는 주문 조회 화면에서 직접 주문을 취소할 수 있어요.</p></div>
     <div class="btn-row" style="justify-content:center"><a class="btn" href="#/orders">주문 조회</a><a class="btn ghost" href="#/store">쇼핑 계속하기</a></div></div>`;
 }
@@ -1384,7 +1469,8 @@ function vOrders(){
   };
   const cards = list.map(o => { const x = stOf(o); return `<article class="ocard">
       <div class="ocard-h"><div><b>${esc(o.no)}</b><span class="muted">주문일시 ${fmtDT(o.createdAt)}</span></div><span class="status ${statusCls(x.status)}">${esc(x.status)}</span></div>
-      <ul class="ocard-items">${(o.items || []).map(i => `<li><span>${esc(i.name)}${i.opt ? ` (${esc(i.opt)})` : ""} × ${i.qty}${i.pre ? ` <em class="pre-tag">사전 주문 제작</em>` : ""}</span><span>${won(i.price * i.qty)}</span></li>`).join("")}</ul>
+      ${(() => { const xs = (S.lookupStatus || {})[o.no] || {}; return xs.courier && xs.trackingNo ? `<p class="ocard-track">배송 조회: ${trackLink(xs.courier, xs.trackingNo)}</p>` : ""; })()}
+      <ul class="ocard-items">${(o.items || []).map(i => `<li><span>${esc(i.name)}${i.opt ? ` (${esc(i.opt)})` : ""} × ${i.qty}${i.pre ? ` <em class="pre-tag">사전 주문 제작</em>` : ""}${i.recv ? ` <span class="recv-tag sm ${i.recv === "현장수령" ? "pickup" : ""}">${esc(i.recv)}</span>` : ""}</span><span>${won(i.price * i.qty)}</span></li>`).join("")}</ul>
       <dl class="ocard-sum"><dt>상품 금액</dt><dd>${won(o.subtotal)}</dd><dt>배송비</dt><dd>${o.shipping ? won(o.shipping) : "무료"}</dd><dt>총 결제 금액</dt><dd><b>${won(o.total)}</b></dd></dl>
       <details class="ocard-log"><summary>진행 기록</summary><ul>${x.log.map(l => `<li><span>${fmtDT(l.at)}</span><span>${esc(normStatus(l.s))}${l.by ? ` <span class="muted">(${esc(l.by)})</span>` : ""}</span></li>`).join("")}</ul></details>
       <div class="ocard-act">${action(o, x.status)}</div>
@@ -1506,18 +1592,24 @@ function vContact(sub){
 /* ---------- admin ---------- */
 const SCHEMA = {
   products: { label: "상품", fields: [
+    {k:"ptype",l:"상품 유형",t:"select",opts:["의류","티켓","일반상품"],req:1,wide:1,hint:"유형에 따라 아래 입력 칸이 바뀌어요. 의류: 사이즈별 재고 / 티켓: 좌석(구역)별 재고, 수령 방법, 공연 정보 / 일반상품: 옵션별 재고."},
     {k:"name",l:"상품명",req:1,wide:1},
     {k:"status",l:"판매 상태",t:"select",opts:["판매중","품절","숨김"],req:1,hint:"재고가 모두 0이 되면 자동으로 SOLD OUT 표시돼요. '품절'은 재고와 관계없이 판매를 멈출 때 써요."},{k:"price",l:"정가 (원)",t:"number",req:1},{k:"salePrice",l:"할인가 (원)",t:"number",hint:"비워 두면 정가로 판매해요."},
-    {k:"stockTotal",l:"총 재고 (사이즈 없는 상품)",t:"stocktotal",hint:"처음에 준비한 전체 수량을 적어요. 판매와 잔여는 주문 기록으로 자동 계산돼요. 비워 두면 수량 제한 없이 팔려요. 아래에 사이즈를 넣으면 이 칸은 쓰지 않아요."},
-    {k:"optionLabel",l:"옵션 이름",hint:"예: 사이즈, 색상. 비워 두면 '사이즈'로 표시돼요."},
+    {k:"saleStart",l:"판매 시작 일시 (선택)",t:"datetime",hint:"예매 오픈처럼 정해진 시각부터 팔 때 입력해요. 그 전에는 '판매 예정'으로 보여요."},
+    {k:"saleEnd",l:"판매 마감 일시",t:"datetime",hint:"이 시각이 되면 자동으로 '판매 마감'되어 주문할 수 없어요. 날짜를 늦추면 다시 열려요. 비워 두면 마감 없이 팔려요."},
+    {k:"eventAt",l:"공연 일시",t:"datetime",types:["티켓"]},{k:"eventVenue",l:"공연 장소",types:["티켓"]},
+    {k:"receive",l:"수령 방법",t:"select",opts:["현장수령","우편수령"],req:1,types:["티켓"],hint:"현장수령: 상품 화면과 주문에 '현장수령' 표시, 배송비와 주소 입력 없음. 우편수령: 배송비와 주소를 받아요."},
+    {k:"maxPerOrder",l:"1회 최대 구매 수량",t:"number",types:["티켓","일반상품"],hint:"한 번 주문에서 이 상품을 최대 몇 개(매)까지 살 수 있는지예요. 옵션을 합친 수량 기준이에요. 비워 두면 제한 없음."},
+    {k:"stockTotal",l:"총 재고 (옵션 없는 상품)",t:"stocktotal",hint:"처음에 준비한 전체 수량을 적어요. 판매와 잔여는 주문 기록으로 자동 계산돼요. 비워 두면 수량 제한 없이 팔려요. 아래에 옵션을 넣으면 이 칸은 쓰지 않아요."},
+    {k:"optionLabel",l:"옵션 이름",hint:"손님 화면에 옵션 위에 보이는 이름이에요. 비워 두면 의류는 '사이즈', 티켓은 '좌석', 일반상품은 '옵션'으로 보여요."},
     {k:"options",l:"사이즈별 재고",t:"options",wide:1,hint:"사이즈마다 '총 재고'만 입력하세요. 판매(입금완료 이후 주문)와 잔여는 자동으로 계산돼요. 입금대기 중인 주문은 참고로 따로 보여 줘요. 총 재고를 비우면 그 사이즈는 수량 제한 없이 팔려요. 손님 화면에는 수량이 보이지 않고, 잔여가 0이면 SOLD OUT만 표시돼요."},{k:"summary",l:"한 줄 소개",wide:1},
     {k:"description",l:"상세 설명",t:"textarea",wide:1,rows:8},{k:"images",l:"상품 이미지",t:"images",wide:1,hint:"첫 번째 이미지가 대표 이미지가 됩니다."},
-    {k:"preorder",l:"사전 주문 제작 여부",t:"select",opts:["사전 주문 제작 (환불 불가)"],wide:1,hint:"고르면 상품 화면, 주문서, 주문 조회에 '사전 주문 제작 상품으로 환불 불가' 안내가 표시돼요."},
+    {k:"preorder",l:"사전 주문 제작 여부",t:"select",opts:["사전 주문 제작 (환불 불가)"],wide:1,types:["의류","일반상품"],hint:"고르면 상품 화면, 주문서, 주문 조회에 '사전 주문 제작 상품으로 환불 불가' 안내가 표시돼요."},
     {k:"termsTitle",l:"구매 약관 제목",wide:1,hint:"예: 맞춤 제작 상품 구매 약관. 비워 두면 '구매 약관'으로 표시돼요."},
     {k:"terms",l:"구매 약관 내용 (손님 필수 동의)",t:"textarea",rows:7,wide:1,hint:"내용을 적으면 이 상품을 주문할 때 [필수] 동의 체크박스가 나와요. 비워 두면 표시되지 않아요. 빈 줄로 문단을 나눠요."},],
-    sub: x => `${won(unit(x))}, ${x.status || ""}`, stock: x => stockTable(x), badge: x => soldOut(x) ? "SOLD OUT" : (hasOpts(x) && x.options.some(optSoldOut) ? "일부 SOLD OUT" : ""), thumb: x => (x.images || [])[0] },
+    sub: x => `${ptypeOf(x)}${isPickup(x) ? " · 현장수령" : x.receive ? " · " + x.receive : ""}, ${won(unit(x))}, ${saleState(x)}${x.saleEnd ? ` (마감 ${fmtLocal(x.saleEnd)})` : ""}`, stock: x => stockTable(x), badge: x => soldOut(x) ? "SOLD OUT" : (hasOpts(x) && x.options.some(optSoldOut) ? "일부 SOLD OUT" : ""), thumb: x => (x.images || [])[0] },
   videos: { label: "영상", fields: [
-    {k:"title",l:"제목",req:1,wide:1},{k:"repertoire",l:"작품 (선택)",t:"select",opts:["승무","살풀이춤","태평무","화랭이춤","검무","소고춤","창작, 협업","기타"]},{k:"category",l:"분류",t:"select",opts:["하이라이트","무대 영상","비하인드"],req:1},{k:"date",l:"공연일",t:"date"},
+    {k:"title",l:"제목",req:1,wide:1},{k:"repertoire",l:"작품 (선택)",t:"select",opts:["승무","살풀이춤","태평무","화랭이춤","검무","소고춤","개인발표회","창작, 협업","기타"]},{k:"category",l:"분류",t:"select",opts:["하이라이트","무대 영상","비하인드"],req:1},{k:"date",l:"공연일",t:"date"},
     {k:"url",l:"YouTube 링크",req:1,wide:1,hint:"youtube.com/watch?v=… 또는 youtu.be/… 주소를 붙여 넣으세요."},{k:"venue",l:"장소",wide:1},{k:"description",l:"설명",t:"textarea",wide:1}],
     sub: x => `${x.repertoire || ""}, ${x.category || ""}, ${fmtDate(x.date)}${ytId(x.url) ? "" : ", 링크 확인 필요"}` },
   gallery: { label: "갤러리", fields: [
@@ -1589,6 +1681,10 @@ const BRAND_FIELDS = [
   {k:"siteTitle",l:"홈페이지 제목",wide:1,hint:"홈페이지 맨 위 왼쪽에 보이는 이름이에요. 비워 두면 무용가 이름이 보여요."},
   {k:"favicon",l:"파비콘 (브라우저 탭 아이콘)",t:"image",wide:1,hint:"정사각형 PNG 이미지(512×512 이상)를 권해요. 올리면 가운데를 기준으로 정사각형으로 맞춰 512×512 PNG로 저장돼요. 저장하면 브라우저 탭, 즐겨찾기, 휴대폰 홈 화면 아이콘에 적용돼요."}
 ];
+/* 택배사: 한글 이름 가나다순, 그다음 영문 시작 이름 */
+const COURIERS = ["건영택배", "경동택배", "대신택배", "로젠택배", "롯데택배", "우체국택배", "일양로지스", "천일택배", "한진택배", "합동택배", "호남택배", "CJ대한통운", "CU 편의점택배", "GS Postbox 택배"];
+const trackUrl = (c, n) => "https://search.naver.com/search.naver?query=" + encodeURIComponent(`${c} ${n}`);
+function trackLink(c, n){ if (!c || !n) return ""; return `<a class="track" href="${trackUrl(c, n)}" target="_blank" rel="noopener">${esc(c)} ${esc(n)} <span aria-hidden="true">↗</span><span class="sr">(네이버에서 배송 조회, 새 창)</span></a>`; }
 const ORDER_STATUS = ["입금대기","입금완료","배송준비","배송중","배송완료","취소","환불완료"];
 const DEDUCTED = ["입금완료","결제완료","배송준비","배송중","배송완료"];
 const normStatus = st => st === "결제완료" ? "입금완료" : (st || "");
@@ -1603,12 +1699,12 @@ function fieldHtml(f, d, key){
   if (f.t === "options"){
     const rows = Array.isArray(d[f.k]) ? d[f.k] : [], pid = S.edit && S.edit.id;
     return `<div class="fld wide"><span class="lbl">${esc(f.l)}</span>
-      <div class="optrows"><div class="optrow opthead"><span>사이즈</span><span>총 재고</span><span>판매</span><span>잔여</span><span></span></div>
+      <div class="optrows"><div class="optrow opthead"><span>${f.ptype === "티켓" ? "좌석(구역)" : f.ptype === "일반상품" ? "옵션" : "사이즈"}</span><span>총 재고</span><span>판매</span><span>잔여</span><span></span></div>
       ${rows.map((o, i) => { const sa = pid ? salesOf(pid, String(o.name || "").trim()) : {sold: 0, wait: 0}; const t = o.total === "" || o.total == null ? null : Number(o.total); const rem = t === null ? null : t - sa.sold;
         return `<div class="optrow"><input aria-label="${i + 1}번째 사이즈 이름" placeholder="예: S, M, L, FREE" value="${esc(o.name || "")}" data-opt-i="${i}" data-opt-k="name"><input aria-label="${i + 1}번째 총 재고" type="number" min="0" step="1" inputmode="numeric" placeholder="제한 없음" value="${esc(o.total ?? "")}" data-opt-i="${i}" data-opt-k="total">
         <span class="optnum">${sa.sold}${sa.wait ? `<small>입금대기 ${sa.wait}</small>` : ""}</span><span class="optnum ${rem !== null && rem <= 0 ? "zero" : ""}">${rem === null ? "∞" : rem <= 0 ? `0 <span class="so-tag">SOLD OUT</span>` : rem}${rem !== null && rem < 0 ? `<small>총 재고가 판매보다 적어요</small>` : ""}</span>
         <button type="button" class="btn ghost sm" data-act="opt-rm" data-i="${i}">삭제</button></div>`; }).join("")}</div>
-      <div class="btn-row" style="margin-top:8px"><button type="button" class="btn ghost sm" data-act="opt-add">+ 사이즈 추가</button>${rows.length ? "" : `<button type="button" class="btn ghost sm" data-act="opt-preset">S, M, L, XL 한 번에 넣기</button>`}</div>
+      <div class="btn-row" style="margin-top:8px"><button type="button" class="btn ghost sm" data-act="opt-add">+ 사이즈 추가</button>${rows.length ? "" : f.ptype === "티켓" ? `<button type="button" class="btn ghost sm" data-act="opt-preset" data-v="seat">자유석 한 줄 넣기</button>` : f.ptype === "일반상품" ? "" : `<button type="button" class="btn ghost sm" data-act="opt-preset">S, M, L, XL 한 번에 넣기</button>`}</div>
       ${f.hint ? `<p class="hint">${esc(f.hint)}</p>` : ""}</div>`;
   }
   if (f.t === "stocktotal"){
@@ -1624,7 +1720,7 @@ function fieldHtml(f, d, key){
       ${(f.t === "images" || !ids.length) ? `<label class="upl">${S.uploading === f.k ? "올리는 중…" : "이미지<br>추가"}<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" ${f.t === "images" ? "multiple" : ""} data-upload="${f.k}" data-multi="${f.t === "images" ? 1 : 0}"></label>` : ""}</div>`;
   } else if (f.t === "textarea") inp = `<textarea id="${id}" name="${f.k}" rows="${f.rows || 5}" ${req}>${esc(v)}</textarea>`;
   else if (f.t === "select") inp = `<select id="${id}" name="${f.k}" ${req}><option value="">선택</option>${f.opts.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
-  else inp = `<input id="${id}" name="${f.k}" type="${f.t === "number" ? "number" : f.t === "date" ? "date" : f.t === "time" ? "time" : "text"}" ${f.t === "number" ? 'min="0" step="1" inputmode="numeric"' : ""} value="${esc(v)}" ${req} ${f.list ? `list="${id}-l"` : ""}>${f.list ? `<datalist id="${id}-l">${f.list.map(o => `<option value="${esc(o)}">`).join("")}</datalist>` : ""}`;
+  else inp = `<input id="${id}" name="${f.k}" type="${f.t === "number" ? "number" : f.t === "date" ? "date" : f.t === "time" ? "time" : f.t === "datetime" ? "datetime-local" : "text"}" ${f.t === "number" ? 'min="0" step="1" inputmode="numeric"' : ""} value="${esc(v)}" ${req} ${f.list ? `list="${id}-l"` : ""}>${f.list ? `<datalist id="${id}-l">${f.list.map(o => `<option value="${esc(o)}">`).join("")}</datalist>` : ""}`;
   return `<div class="fld ${f.wide ? "wide" : ""}"><label for="${id}">${esc(f.l)}${f.req ? " <i>*</i>" : ""}</label>${inp}${f.hint ? `<p class="hint">${esc(f.hint)}</p>` : ""}</div>`;
 }
 
@@ -2066,12 +2162,19 @@ async function savePerfRefs(){
   catch(e){ toast(failMsg(e, "저장하지 못했어요.")); }
   S.busy = false; render();
 }
+function visibleFields(col, d){
+  const sch = SCHEMA[col]; if (col !== "products") return sch.fields;
+  const t = PTYPES.includes(d.ptype) ? d.ptype : "의류";
+  const optL = {"의류": "사이즈별 재고", "티켓": "좌석(구역)별 재고", "일반상품": "옵션별 재고"}[t];
+  const optH = {"의류": "사이즈마다 '총 재고'만 입력하세요.", "티켓": "자유석, R석, A구역처럼 좌석(구역) 이름과 '총 재고'를 입력하세요. 한 종류뿐이면 '자유석' 한 줄만 넣으세요.", "일반상품": "색상, 종류 등 옵션 이름과 '총 재고'를 입력하세요. 옵션이 없는 상품이면 비워 두고 위의 '총 재고'를 쓰세요."}[t];
+  return sch.fields.filter(f => !f.types || f.types.includes(t)).map(f => f.k === "options" ? {...f, l: optL, hint: optH + " 판매(입금완료 이후 주문)와 잔여는 자동으로 계산되고, 잔여가 0이 되면 자동으로 SOLD OUT 처리돼요. 손님 화면에는 수량이 보이지 않아요.", ptype: t} : f);
+}
 function adminCollection(col){
   const sch = SCHEMA[col];
   if (S.edit && S.edit.col === col){
     const d = draft("edit");
     return `<div class="sec-head" style="margin-bottom:20px"><h2>${sch.label} ${S.edit.id ? "수정" : "등록"}</h2><button class="btn ghost sm" data-act="cancel-edit">목록으로</button></div>
-    <form class="form" data-form="admin-save" data-col="${col}" data-draft="edit" novalidate>${sch.fields.map(f => fieldHtml(f, d, "edit")).join("")}
+    <form class="form" data-form="admin-save" data-col="${col}" data-draft="edit" novalidate>${visibleFields(col, d).map(f => fieldHtml(f, d, "edit")).join("")}
     <div class="fld wide" style="flex-direction:row;gap:8px"><button class="btn" type="submit" ${S.busy || S.uploading ? "disabled" : ""}>${S.busy ? "저장하는 중…" : "저장"}</button><button class="btn ghost" type="button" data-act="cancel-edit">취소</button></div></form>`;
   }
   const list = S[col];
@@ -2094,13 +2197,15 @@ function adminStore(){
       <label class="check" style="grid-column:auto"><input type="radio" name="shipMode" value="유료" ${free ? "" : "checked"}> 배송비 받기</label></div></fieldset>
     ${free ? "" : `<div class="fld"><label for="st-fee">배송비 (원)</label><input id="st-fee" name="shipFee" type="number" min="0" step="100" inputmode="numeric" value="${esc(d.shipFee ?? "")}"></div>
     <div class="fld"><label for="st-over">이 금액 이상 무료 배송 (원)</label><input id="st-over" name="freeOver" type="number" min="0" step="1000" inputmode="numeric" value="${esc(d.freeOver ?? "")}"><p class="hint">비워 두면 금액과 관계없이 항상 배송비를 받아요.</p></div>`}
-    <div class="fld wide" style="margin-top:8px"><label for="st-bank">무통장 입금 계좌</label><input id="st-bank" name="bank" value="${esc(d.bank ?? "")}" placeholder="예: ○○은행 000-0000-0000 (예금주 홍길동)"><p class="hint">주문 완료 화면, 주문서, 주문 조회 화면에 표시돼요.</p></div>
+    <div class="fld" style="margin-top:8px"><label for="st-bankName">은행명</label><input id="st-bankName" name="bankName" value="${esc(d.bankName ?? "")}" placeholder="예: 국민은행"></div>
+    <div class="fld" style="margin-top:8px"><label for="st-bankHolder">예금주</label><input id="st-bankHolder" name="bankHolder" value="${esc(d.bankHolder ?? "")}" placeholder="예: 이가원"></div>
+    <div class="fld wide"><label for="st-bankAccount">계좌번호</label><input id="st-bankAccount" name="bankAccount" value="${esc(d.bankAccount ?? "")}" placeholder="예: 000000-00-000000"><p class="hint">주문 완료 화면에서 손님이 은행, 계좌번호, 예금주를 각각 눌러 복사할 수 있어요. ${(S.store && S.store.bank) || S.profile.bank ? `예전에 한 줄로 입력한 계좌: <b>${esc((S.store && S.store.bank) || S.profile.bank)}</b> → 위 세 칸으로 나눠 다시 입력해 주세요.` : ""}</p></div>
     <div class="fld wide"><p class="hint">현재 손님 화면 배송비 표시: <b>${free ? "무료" : (Number(d.shipFee) > 0 ? won(d.shipFee) + (Number(d.freeOver) > 0 ? ` (${won(d.freeOver)} 이상 무료)` : "") : "무료")}</b></p>
     <button class="btn" type="submit" ${S.busy ? "disabled" : ""}>${S.busy ? "저장하는 중…" : "저장"}</button></div></form>`;
 }
 async function saveStore(form){
   const d = draft("store");
-  const data = {shipMode: d.shipMode === "무료" ? "무료" : "유료", shipFee: Math.max(0, Math.round(Number(d.shipFee) || 0)), freeOver: d.freeOver === "" || d.freeOver == null ? null : Math.max(0, Math.round(Number(d.freeOver) || 0)), bank: String(d.bank || "").trim().slice(0, 200), updatedAt: Date.now()};
+  const data = {shipMode: d.shipMode === "무료" ? "무료" : "유료", shipFee: Math.max(0, Math.round(Number(d.shipFee) || 0)), freeOver: d.freeOver === "" || d.freeOver == null ? null : Math.max(0, Math.round(Number(d.freeOver) || 0)), bank: String(d.bank || (S.store && S.store.bank) || "").trim().slice(0, 200), bankName: String(d.bankName || "").trim().slice(0, 40), bankAccount: String(d.bankAccount || "").trim().slice(0, 60), bankHolder: String(d.bankHolder || "").trim().slice(0, 40), updatedAt: Date.now()};
   if (data.shipMode === "유료" && data.shipFee > 100000){ toast("배송비는 100,000원 이하로 입력해 주세요"); return; }
   S.busy = true; render();
   try { await FS.doc("site/store").set(data); toast("스토어 설정을 저장했어요"); S.drafts.store = null; }
@@ -2114,6 +2219,33 @@ function adminProfile(){
   <div class="fld wide"><button class="btn" type="submit" ${S.busy || S.uploading ? "disabled" : ""}>${S.busy ? "저장하는 중…" : "저장"}</button></div></form>`;
 }
 
+const orderShips = o => (o.items || []).some(i => i.recv !== "현장수령");
+function shipBox(o){
+  if (!SHIPPING_STAGE.includes(normStatus(o.status))) return "";
+  if (!orderShips(o)) return `<div class="shipbox"><span class="recv-tag pickup">현장수령</span></div>`;
+  const key = "ship-" + o.id, d = S.drafts[key] || (S.drafts[key] = {courier: o.courier || "", trackingNo: o.trackingNo || ""});
+  const known = !d.courier || COURIERS.includes(d.courier);
+  return `<form class="shipbox" data-form="ship-save" data-oid="${esc(o.id)}" data-draft="${esc(key)}" novalidate>
+    <label><span class="sr">택배사</span><select name="courier"><option value="">택배사 선택</option>${COURIERS.map(c => `<option ${c === d.courier ? "selected" : ""}>${c}</option>`).join("")}<option value="__etc" ${!known ? "selected" : ""}>기타 (직접 입력)</option></select></label>
+    ${!known || d.courier === "__etc" ? `<input name="courierEtc" placeholder="택배사 이름" value="${esc(d.courierEtc ?? (known ? "" : d.courier))}">` : ""}
+    <input name="trackingNo" placeholder="운송장번호" inputmode="numeric" value="${esc(d.trackingNo || "")}">
+    <button class="btn sm" type="submit">저장</button>
+    ${o.courier && o.trackingNo ? `<div class="hint" style="margin:0">${trackLink(o.courier, o.trackingNo)}</div>` : ""}
+  </form>`;
+}
+async function saveShip(form){
+  const oid = form.dataset.oid, d = S.drafts[form.dataset.draft] || {};
+  const courier = String((d.courier === "__etc" ? d.courierEtc : d.courier) || "").trim(), trackingNo = String(d.trackingNo || "").replace(/[^0-9A-Za-z-]/g, "");
+  if (!courier || !trackingNo){ toast("택배사와 운송장번호를 모두 입력해 주세요"); return; }
+  try {
+    const snap = await FS.doc("orders/" + oid).get(); if (!snap.exists) return;
+    const o = snap.data(), at = Date.now();
+    await FS.doc("orders/" + oid).update({courier, trackingNo, shippedInfoAt: at});
+    const sk = (o.lookupKeys || [])[1];
+    if (sk){ try { await FS.doc("orderStatus/" + sk).merge({courier, trackingNo, updatedAt: at}); } catch(e){} }
+    delete S.drafts[form.dataset.draft]; toast("배송 정보를 저장했어요. 주문 조회 화면에도 표시돼요"); render();
+  } catch(e){ toast(failMsg(e, "배송 정보를 저장하지 못했어요.")); }
+}
 function ordersFiltered(){
   const f = S.af || {};
   const q = String(f.q || "").trim().toLowerCase(), qd = q.replace(/\D/g, "");
@@ -2134,7 +2266,7 @@ function orderDetail(o){
   const b = o.buyer || {}, c = o.consents || {}, memo = S.memos && S.memos[o.id];
   const draftMemo = (S.drafts.memo || {})[o.id];
   return `<tr class="odetail"><td colspan="6"><div class="odg">
-    <section><h4>배송 정보</h4><dl class="kv2"><dt>주문자</dt><dd>${esc(b.name)}</dd><dt>휴대폰</dt><dd>${esc(b.phone)}</dd>${b.email ? `<dt>이메일</dt><dd>${esc(b.email)}</dd>` : ""}<dt>주소</dt><dd>${esc([b.zip && `(${b.zip})`, b.address, b.address2].filter(Boolean).join(" "))}</dd>${b.memo ? `<dt>배송 메모</dt><dd>${esc(b.memo)}</dd>` : ""}</dl></section>
+    <section><h4>배송 정보</h4><dl class="kv2"><dt>주문자</dt><dd>${esc(b.name)}</dd><dt>휴대폰</dt><dd>${esc(b.phone)}</dd>${b.email ? `<dt>이메일</dt><dd>${esc(b.email)}</dd>` : ""}<dt>주소</dt><dd>${esc([b.zip && `(${b.zip})`, b.address, b.address2].filter(Boolean).join(" "))}</dd>${b.memo ? `<dt>배송 메모</dt><dd>${esc(b.memo)}</dd>` : ""}${o.courier && o.trackingNo ? `<dt>배송 조회</dt><dd>${trackLink(o.courier, o.trackingNo)}</dd>` : ""}</dl></section>
     <section><h4>결제 금액</h4><dl class="kv2">${(o.items || []).map(i => `<dt>${esc(i.name)}${i.opt ? ` (${esc(i.opt)})` : ""} × ${i.qty}${i.pre ? ` <em class="pre-tag">사전제작</em>` : ""}</dt><dd>${won(i.price * i.qty)}</dd>`).join("")}<dt>상품 금액</dt><dd>${won(o.subtotal)}</dd><dt>배송비</dt><dd>${o.shipping ? won(o.shipping) : "무료"}</dd><dt><b>총 결제 금액</b></dt><dd><b>${won(o.total)}</b></dd></dl></section>
     <section><h4>진행 기록</h4><ul class="olog">${orderLog(o).map(l => `<li><span>${fmtDT(l.at)}</span><span>${esc(normStatus(l.s))}${l.by ? ` <span class="muted">(${esc(l.by)})</span>` : ""}</span></li>`).join("")}</ul></section>
     <section><h4>동의 내역</h4><ul class="olog">
@@ -2164,9 +2296,9 @@ function adminOrders(){
   ${list.length ? `<div class="scroll-x"><table class="otable"><thead><tr><th>주문일시</th><th>주문자</th><th>상품</th><th>총 결제 금액</th><th>상태</th><th></th></tr></thead><tbody>${list.map(o => `<tr>
     <td style="white-space:nowrap">${fmtDT(o.createdAt)}<br><span class="muted" style="font-size:.8rem">${esc(o.id)}</span></td>
     <td><b>${esc((o.buyer || {}).name)}</b><br><span class="muted" style="font-size:.85rem">${esc((o.buyer || {}).phone)}</span>${o.consents && (o.consents.marketing || []).length ? `<br><span class="mkt-tag">마케팅 동의</span>` : ""}${S.memos && S.memos[o.id] && S.memos[o.id].memo ? `<br><span class="memo-tag">메모 있음</span>` : ""}</td>
-    <td>${(o.items || []).map(i => `${esc(i.name)}${i.opt ? ` <b>(${esc(i.opt)})</b>` : ""} × ${i.qty}`).join("<br>")}</td>
+    <td>${(o.items || []).map(i => `${esc(i.name)}${i.opt ? ` <b>(${esc(i.opt)})</b>` : ""} × ${i.qty}${i.recv ? ` <span class="recv-tag sm ${i.recv === "현장수령" ? "pickup" : ""}">${esc(i.recv)}</span>` : ""}`).join("<br>")}</td>
     <td style="white-space:nowrap"><b>${won(o.total)}</b><br><span class="muted" style="font-size:.8rem">${o.shipping ? `배송비 ${won(o.shipping)} 포함` : "배송비 무료"}</span>${(() => { const e = expectedTotal(o); return e !== null && e !== o.total ? `<br><span style="color:var(--kasa);font-size:.8rem">현재 가격 기준 ${won(e)}, 입금 금액 확인 필요</span>` : ""; })()}</td>
-    <td><label><span class="sr">주문 상태</span><select data-act-change="ostatus" data-oid="${esc(o.id)}" style="padding:6px">${ORDER_STATUS.map(x => `<option ${x === normStatus(o.status) ? "selected" : ""}>${x}</option>`).join("")}</select></label>${o.canceledBy === "주문자" ? `<br><span class="muted" style="font-size:.78rem">주문자가 취소함</span>` : ""}<br><span class="muted" style="font-size:.78rem">${fmtDT((orderLog(o).slice(-1)[0] || {}).at)}</span></td>
+    <td><label><span class="sr">주문 상태</span><select data-act-change="ostatus" data-oid="${esc(o.id)}" style="padding:6px">${ORDER_STATUS.map(x => `<option ${x === normStatus(o.status) ? "selected" : ""}>${x}</option>`).join("")}</select></label>${shipBox(o)}${o.canceledBy === "주문자" ? `<br><span class="muted" style="font-size:.78rem">주문자가 취소함</span>` : ""}<br><span class="muted" style="font-size:.78rem">${fmtDT((orderLog(o).slice(-1)[0] || {}).at)}</span></td>
     <td><button class="btn ghost sm" data-act="odetail" data-id="${esc(o.id)}" aria-expanded="${S.openOrder === o.id}">${S.openOrder === o.id ? "닫기" : "상세"}</button></td></tr>${S.openOrder === o.id ? orderDetail(o) : ""}`).join("")}</tbody></table></div>` : `<div class="empty">${all.length ? "조건에 맞는 주문이 없어요." : "아직 들어온 주문이 없어요."}</div>`}`;
 }
 
@@ -2229,9 +2361,9 @@ async function exportOrders(){
   try { await loadXLSX(); } catch(e){ toast("엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요."); return; }
   const memoOf = o => (S.memos && S.memos[o.id] && S.memos[o.id].memo) || "";
   const lastAt = o => (orderLog(o).slice(-1)[0] || {}).at;
-  const head1 = ["주문번호","주문일시","상태","최종 상태 변경 일시","주문자","휴대폰","이메일","우편번호","주소","상세주소","배송 메모","주문 상품","상품 금액","배송비","총 결제 금액(배송비 포함)","마케팅 동의","주문자 취소 여부","관리자 메모"];
+  const head1 = ["주문번호","주문일시","상태","최종 상태 변경 일시","주문자","휴대폰","이메일","우편번호","주소","상세주소","배송 메모","주문 상품","상품 금액","배송비","총 결제 금액(배송비 포함)","택배사","운송장번호","마케팅 동의","주문자 취소 여부","관리자 메모"];
   const rows1 = list.map(o => { const b = o.buyer || {}; return [o.id, fmtDT(o.createdAt), normStatus(o.status), fmtDT(lastAt(o)), b.name || "", b.phone || "", b.email || "", b.zip || "", b.address || "", b.address2 || "", b.memo || "",
-    (o.items || []).map(i => `${i.name}${i.opt ? ` (${i.opt})` : ""} x ${i.qty}`).join("\n"), o.subtotal || 0, o.shipping || 0, o.total || 0, o.consents && (o.consents.marketing || []).length ? "동의" : "", o.canceledBy === "주문자" ? "주문자 취소" : "", memoOf(o)]; });
+    (o.items || []).map(i => `${i.name}${i.opt ? ` (${i.opt})` : ""} x ${i.qty}${i.recv ? ` [${i.recv}]` : ""}`).join("\n"), o.subtotal || 0, o.shipping || 0, o.total || 0, o.courier || "", o.trackingNo || "", o.consents && (o.consents.marketing || []).length ? "동의" : "", o.canceledBy === "주문자" ? "주문자 취소" : "", memoOf(o)]; });
   const head2 = ["주문번호","주문일시","상태","주문자","휴대폰","상품명","사이즈/옵션","사전 주문 제작","수량","단가","상품별 금액","주문 배송비","주문 총 결제 금액(배송비 포함)"];
   const rows2 = []; list.forEach(o => (o.items || []).forEach(i => rows2.push([o.id, fmtDT(o.createdAt), normStatus(o.status), (o.buyer || {}).name || "", (o.buyer || {}).phone || "", i.name, i.opt || "", i.pre ? "예" : "", i.qty, i.price, i.price * i.qty, o.shipping || 0, o.total || 0])));
   const head3 = ["주문번호","일시","상태","처리자"];
@@ -2239,7 +2371,7 @@ async function exportOrders(){
   const sumT = list.reduce((a, o) => a + (o.total || 0), 0);
   rows1.push([], ["합계", "", "", "", "", "", "", "", "", "", "", `${list.length}건`, list.reduce((a, o) => a + (o.subtotal || 0), 0), list.reduce((a, o) => a + (o.shipping || 0), 0), sumT]);
   const wb = window.XLSX.utils.book_new();
-  window.XLSX.utils.book_append_sheet(wb, sheet([head1, ...rows1], [16,17,9,17,10,14,22,8,30,18,18,34,11,9,14,10,11,30]), "주문목록");
+  window.XLSX.utils.book_append_sheet(wb, sheet([head1, ...rows1], [16,17,9,17,10,14,22,8,30,18,18,34,11,9,14,12,16,10,11,30]), "주문목록");
   window.XLSX.utils.book_append_sheet(wb, sheet([head2, ...rows2], [16,17,9,10,14,24,10,10,6,10,11,10,14]), "주문상세(상품별)");
   window.XLSX.utils.book_append_sheet(wb, sheet([head3, ...rows3], [16,17,10,10]), "진행기록");
   window.XLSX.writeFile(wb, `주문내역_${stampNow()}.xlsx`);
@@ -2323,6 +2455,14 @@ function vModal(){
       <div style="padding:14px 4px 4px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><b class="serif">${esc(v.title)}</b><div class="muted" style="font-size:.88rem">${fmtDate(v.date)}${v.venue ? `, ${esc(v.venue)}` : ""}</div>${v.description ? `<p style="margin-top:8px;font-size:.93rem">${esc(v.description)}</p>` : ""}</div>
       <a class="btn ghost sm" href="https://www.youtube.com/watch?v=${id}" target="_blank" rel="noopener">YouTube에서 열기</a></div></div></div>`;
   }
+  if (m.type === "viewer"){
+    const it = m.list[m.i] || m.list[0], n = m.list.length;
+    return `<div class="modal viewer" role="dialog" aria-modal="true" aria-label="사진 크게 보기" data-act="close-bg">
+      <button class="v-close" data-act="close" aria-label="닫기">✕</button>
+      ${n > 1 ? `<button class="v-nav prev" data-act="vstep" data-d="-1" aria-label="이전 사진">‹</button><button class="v-nav next" data-act="vstep" data-d="1" aria-label="다음 사진">›</button>` : ""}
+      <figure class="v-fig"><img src="${it.src}" alt="${esc(it.cap || "")}" draggable="false">${n > 1 || it.cap ? `<figcaption>${it.cap ? esc(it.cap) + " · " : ""}${m.i + 1} / ${n}</figcaption>` : ""}</figure></div>`;
+  }
+  if (m.type === "postcode") return `<div class="modal" role="dialog" aria-modal="true" aria-label="주소 찾기"><div class="modal-in pc-modal"><div class="modal-top"><span>주소 찾기</span><button data-act="close">닫기</button></div><div id="pc-box"><p class="muted" style="padding:20px">주소 검색을 불러오는 중…</p></div></div></div>`;
   if (m.type === "img"){
     const g = S.gallery[m.i]; if (!g) return "";
     return `<div class="modal" role="dialog" aria-modal="true" aria-label="사진 크게 보기" data-act="close-bg"><div class="modal-in img"><div class="modal-top"><button data-act="gstep" data-d="-1">이전</button><button data-act="gstep" data-d="1">다음</button><button data-act="close">닫기</button></div>
@@ -2383,7 +2523,7 @@ function render(){
   $("#hdr").innerHTML = vHeader();
   $("#main").innerHTML = view();
   $("#ftr").innerHTML = vFooter();
-  $("#modal").innerHTML = vModal();
+  if (!(S.modal && S.modal.type === "postcode" && document.getElementById("pc-box"))) $("#modal").innerHTML = vModal();
   $("#pops").innerHTML = vPopups();
   Object.entries(keep).forEach(([id, x]) => { const el = document.getElementById(id); if (el) el.scrollLeft = x; });
   railButtons(); topBtn();
@@ -2477,6 +2617,43 @@ document.getElementById("totop")?.addEventListener("click", () => {
   setTimeout(() => document.querySelector("#hdr .brand")?.focus({preventScroll: true}), 400);
 });
 
+/* ---------- 카카오 우편번호 서비스 (공식 무료 스크립트, 키 불필요) ---------- */
+const PC_SRC = ["https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js", "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"];
+let pcLoading = null;
+function loadPostcode(){
+  if (window.daum && window.daum.Postcode) return Promise.resolve();
+  if (!pcLoading) pcLoading = new Promise((res, rej) => {
+    const tryLoad = i => { if (i >= PC_SRC.length) { pcLoading = null; return rej(new Error("postcode")); }
+      const sc = document.createElement("script"); sc.src = PC_SRC[i]; sc.onload = () => (window.daum && window.daum.Postcode) ? res() : tryLoad(i + 1); sc.onerror = () => { sc.remove(); tryLoad(i + 1); }; document.head.appendChild(sc); };
+    tryLoad(0);
+  });
+  return pcLoading;
+}
+async function openPostcode(){
+  S.modal = {type: "postcode"}; render();
+  try { await loadPostcode(); }
+  catch(e){ S.modal = null; render(); toast("주소 찾기를 불러오지 못했어요. 우편번호와 주소를 직접 입력해 주세요."); return; }
+  const box = document.getElementById("pc-box"); if (!box) return; box.innerHTML = "";
+  new window.daum.Postcode({
+    width: "100%", height: "100%",
+    oncomplete: data => {
+      /* 공식 예제 방식: 도로명 주소 + (법정동, 건물명) 참고항목 */
+      let addr = data.userSelectedType === "J" ? data.jibunAddress : data.roadAddress, extra = "";
+      if (data.userSelectedType !== "J"){
+        if (data.bname && /[동로가]$/.test(data.bname)) extra += data.bname;
+        if (data.buildingName && data.apartment === "Y") extra += (extra ? ", " : "") + data.buildingName;
+        if (extra) addr += ` (${extra})`;
+      }
+      const d = draft("checkout"); d.zip = data.zonecode; d.address = addr; d.address2 = d.address2 || "";
+      S.modal = null; render();
+      setTimeout(() => document.getElementById("co-address2")?.focus(), 30);
+    }
+  }).embed(box, {autoClose: false});
+}
+
+/* 판매 시작, 마감 시각에 맞춰 스토어 화면을 자동으로 갱신 */
+setInterval(() => { if (["store", "product", "cart", "checkout"].includes(route()[0])) softRender(); }, 20000);
+
 /* ---------- slideshow ---------- */
 function goSlide(n){
   const els = document.querySelectorAll(".hero-slides .slide"); const len = els.length; if (!len) return;
@@ -2510,6 +2687,10 @@ document.addEventListener("click", async e => {
     case "pr-bulk": { if (!S.authed) break; const add = parseRefLines(S.keep.prbulk); if (!add.length){ toast("넣을 내용이 없어요"); break; } S.drafts.perfRefs = [...(S.drafts.perfRefs || []), ...add]; S.keep.prbulk = ""; toast(`${add.length}줄을 표에 추가했어요. 확인 후 저장을 눌러 주세요`); render(); break; }
     case "pr-import": if (!S.authed) break; S.drafts.perfRefs = sortRefs((S.performances || []).map(x => ({year: String(x.date || "").slice(0, 4), title: x.title || "", note: [x.venue, x.role].filter(Boolean).join(", ")}))); toast("예전 기록을 표로 불러왔어요. 확인 후 저장을 눌러 주세요"); render(); break;
     case "pr-save": if (S.authed) savePerfRefs(); break;
+    case "copy": copyText(el.dataset.v || ""); break;
+    case "pzoom": { const p = findP(id); if (!p) break; const imgs = (p.images || []).map(u => ({src: blob(u), cap: p.name})); if (!imgs.length) break; S.modal = {type: "viewer", list: imgs, i: Number(el.dataset.i) || 0}; render(); document.querySelector(".viewer [data-act=close]")?.focus(); break; }
+    case "vstep": { const n = S.modal.list.length; S.modal.i = (S.modal.i + Number(el.dataset.d) + n) % n; render(); break; }
+    case "postcode": openPostcode(); break;
     case "stats-n": if (S.authed) loadStats(Number(el.dataset.v) || 30); break;
     case "stats-xls": if (S.authed) exportStats(); break;
     case "pop-close": S.popClosed[id] = true; render(); break;
@@ -2534,7 +2715,7 @@ document.addEventListener("click", async e => {
     case "lkmode": S.lookupMode = el.dataset.v; S.lookup = null; render(); break;
     case "opt-add": { if (!S.authed) break; const d = draft("edit"); d.options = Array.isArray(d.options) ? d.options : []; d.options.push({name: "", total: ""}); render(); const ins = document.querySelectorAll(".optrow input[data-opt-k=name]"); if (ins.length) ins[ins.length - 1].focus(); break; }
     case "opt-rm": { if (!S.authed) break; const d = draft("edit"); if (Array.isArray(d.options)) d.options.splice(Number(el.dataset.i), 1); render(); break; }
-    case "opt-preset": { if (!S.authed) break; const d = draft("edit"); d.options = ["S","M","L","XL"].map(n => ({name: n, total: ""})); render(); break; }
+    case "opt-preset": { if (!S.authed) break; const d = draft("edit"); d.options = (el.dataset.v === "seat" ? ["자유석"] : ["S","M","L","XL"]).map(n => ({name: n, total: ""})); render(); break; }
     case "mfa-start": mfaStart(); break;
     case "verify-send": verifySend(); break;
     case "verify-check": verifyCheck(); break;
@@ -2547,7 +2728,7 @@ document.addEventListener("click", async e => {
     case "slidepause": S.slidePaused = !S.slidePaused; render(); restartSlides(); break;
     case "jump": { const t = document.getElementById(id); if (t) t.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); break; }
     case "video": S.modal = {type: "video", id}; render(); $("#modal button")?.focus(); break;
-    case "img": S.modal = {type: "img", i: Number(el.dataset.i)}; render(); $("#modal button[data-act=close]")?.focus(); break;
+    case "img": S.modal = {type: "viewer", list: S.gallery.map(g => ({src: blob(g.image), cap: g.caption || ""})), i: Number(el.dataset.i)}; render(); $("#modal button[data-act=close]")?.focus(); break;
     case "gstep": { const n = S.gallery.length; S.modal.i = (S.modal.i + Number(el.dataset.d) + n) % n; render(); break; }
     case "close": case "close-bg": S.modal = null; render(); break;
     case "vcat": S.videoCat = el.dataset.v; render(); break;
@@ -2556,20 +2737,21 @@ document.addEventListener("click", async e => {
     case "qty": {
       const p = findP(id);
       if (hasOpts(p) && !S.optSel[id]){ toast(`${optLabel(p)}를 먼저 선택해 주세요`); break; }
-      const max = stockOf(p, S.optSel[id]), lim = max === Infinity ? 99 : max;
+      const max = Math.min(stockOf(p, S.optSel[id]), maxOf(p)), lim = max === Infinity ? 99 : max;
       let q = selQty(id) + Number(el.dataset.d);
-      if (q > lim){ toast("주문 가능한 최대 수량이에요"); q = lim; }
+      if (q > lim){ toast(maxOf(p) <= lim ? `1회 최대 ${maxOf(p)}${unitWord(p)}까지 구매할 수 있어요` : "주문 가능한 최대 수량이에요"); q = lim; }
       S.qty[qtyKey(id)] = Math.max(1, q); render(); break;
     }
     case "optsel": { S.optSel[id] = el.dataset.v; const p = findP(id); const max = stockOf(p, el.dataset.v); const k = qtyKey(id); if (max !== Infinity && (S.qty[k] || 1) > max) S.qty[k] = Math.max(1, max); render(); break; }
     case "addcart": { const k = qtyKey(id); if (addToCart(id, selQty(id))){ delete S.qty[k]; render(); } break; }
     case "buynow": { const k = qtyKey(id); if (buyNow(id, selQty(id))){ delete S.qty[k]; location.hash = "#/checkout/now"; } break; }
-    case "cq": { const l = S.cart.find(x => lineKey(x) === id); if (!l) break; const p = findP(l.pid); l.qty = Math.max(1, l.qty + Number(el.dataset.d)); if (p){ const max = stockOf(p, l.opt); if (max !== Infinity) l.qty = Math.min(l.qty, Math.max(1, max)); } saveCart(); render(); break; }
+    case "cq": { const l = S.cart.find(x => lineKey(x) === id); if (!l) break; const p = findP(l.pid); l.qty = Math.max(1, l.qty + Number(el.dataset.d)); if (p){ const max = stockOf(p, l.opt); if (max !== Infinity) l.qty = Math.min(l.qty, Math.max(1, max)); const mx = maxOf(p), others = S.cart.filter(x => x.pid === l.pid && x !== l).reduce((a, x) => a + x.qty, 0); if (others + l.qty > mx){ l.qty = Math.max(1, mx - others); toast(`1회 최대 ${mx}${unitWord(p)}까지 구매할 수 있어요`); } } saveCart(); render(); break; }
     case "crm": S.cart = S.cart.filter(x => lineKey(x) !== id); saveCart(); render(); break;
     case "new": if (el.dataset.col === "popups" && S.popups.length >= POP_MAX){ toast(`팝업은 최대 ${POP_MAX}개까지 등록할 수 있어요`); break; }
-      S.edit = {col: el.dataset.col, id: null}; S.drafts.edit = el.dataset.col === "products" ? {status: "판매중", images: []} : el.dataset.col === "popups" ? {kind: "이미지", fit: "가로 폭에 맞춤 (세로 스크롤)", start: todayKST(), end: todayKST()} : {}; render(); window.scrollTo(0, 0); break;
+      S.edit = {col: el.dataset.col, id: null}; S.drafts.edit = el.dataset.col === "products" ? {ptype: "의류", status: "판매중", images: []} : el.dataset.col === "popups" ? {kind: "이미지", fit: "가로 폭에 맞춤 (세로 스크롤)", start: todayKST(), end: todayKST()} : {}; render(); window.scrollTo(0, 0); break;
     case "edit": { const x = S[el.dataset.col].find(y => y.id === id); S.edit = {col: el.dataset.col, id}; const dd = clone(x); delete dd.id;
       if (el.dataset.col === "products"){
+        dd.ptype = ptypeOf(x);
         if (Array.isArray(dd.options)) dd.options = dd.options.map(o => { const t = totalOf(id, o); return {name: o.name, total: t === null ? "" : t}; });
         const t0 = totalOf(id, {name: "", total: dd.stockTotal, stock: dd.stock}); dd.stockTotal = t0 === null ? "" : t0;
       }
@@ -2585,15 +2767,31 @@ document.addEventListener("click", async e => {
 document.addEventListener("keydown", e => {
   if (!S.modal) return;
   if (e.key === "Escape"){ S.modal = null; render(); }
+  if (S.modal && S.modal.type === "viewer" && (e.key === "ArrowRight" || e.key === "ArrowLeft")){ const n = S.modal.list.length; S.modal.i = (S.modal.i + (e.key === "ArrowRight" ? 1 : -1) + n) % n; render(); return; }
   if (S.modal && S.modal.type === "img" && (e.key === "ArrowRight" || e.key === "ArrowLeft")){ const n = S.gallery.length; S.modal.i = (S.modal.i + (e.key === "ArrowRight" ? 1 : -1) + n) % n; render(); }
 });
+let swX = null, swY = null;
+document.addEventListener("touchstart", e => { if (S.modal && S.modal.type === "viewer"){ swX = e.touches[0].clientX; swY = e.touches[0].clientY; } }, {passive: true});
+document.addEventListener("touchend", e => {
+  if (swX === null || !S.modal || S.modal.type !== "viewer") return;
+  const dx = e.changedTouches[0].clientX - swX, dy = e.changedTouches[0].clientY - swY; swX = null;
+  if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)){ const n = S.modal.list.length; S.modal.i = (S.modal.i + (dx < 0 ? 1 : -1) + n) % n; render(); }
+}, {passive: true});
+/* 총 재고를 바꾸면 그 줄의 잔여만 바로 다시 계산 (화면 전체를 다시 그리면 저장 버튼 클릭이 사라짐) */
+function updateOptRow(inp){
+  const row = inp.closest(".optrow"); if (!row || inp.dataset.optK !== "total") return;
+  const nameIn = row.querySelector("[data-opt-k=name]"), cells = row.querySelectorAll(".optnum");
+  const pid = S.edit && S.edit.id, sa = pid ? salesOf(pid, String(nameIn ? nameIn.value : "").trim()) : {sold: 0};
+  const t = inp.value === "" ? null : Number(inp.value), rem = t === null ? null : t - sa.sold;
+  if (cells[1]){ cells[1].className = "optnum" + (rem !== null && rem <= 0 ? " zero" : ""); cells[1].innerHTML = rem === null ? "∞" : rem <= 0 ? `0 <span class="so-tag">SOLD OUT</span>` : String(rem); }
+}
 function bindDraft(e){
   if (e.target.dataset && e.target.dataset.prI !== undefined){ const r = (S.drafts.perfRefs || [])[Number(e.target.dataset.prI)]; if (r) r[e.target.dataset.prK] = e.target.value; return; }
   if (e.target.dataset && e.target.dataset.keep){ S.keep[e.target.dataset.keep] = e.target.value; return; }
   if (e.target.dataset && e.target.dataset.optI !== undefined){
     const d = draft("edit"); d.options = Array.isArray(d.options) ? d.options : [];
     const row = d.options[Number(e.target.dataset.optI)]; if (row) row[e.target.dataset.optK] = e.target.value;
-    if (e.type === "change") softRender();
+    if (e.type === "change") updateOptRow(e.target);
     return;
   }
   const f = e.target.closest("[data-draft]"); const name = e.target.name;
@@ -2607,6 +2805,8 @@ document.addEventListener("change", async e => {
   const t = e.target;
   if (t.dataset.actChange === "ssort"){ S.storeSort = t.value; render(); }
   else if (t.name === "shipMode" && t.closest("[data-draft=store]")) render();
+  else if (t.name === "ptype" && t.closest("[data-draft=edit]")) render();
+  else if (t.name === "courier" && t.closest("[data-form=ship-save]")) render();
   else if (["ostatus","qstatus"].includes(t.dataset.actChange) && !S.authed) return;
   else if (t.dataset.actChange === "ostatus"){
     const o = S.allOrders.find(x => x.id === t.dataset.oid), cur = normStatus(o && o.status), nv = t.value, b = (o && o.buyer) || {};
@@ -2632,6 +2832,7 @@ document.addEventListener("submit", async e => {
   else if (kind === "profile-save") saveProfile(f);
   else if (kind === "meta-save"){ if (S.authed) saveMeta(f); }
   else if (kind === "lookup") doLookup(f);
+  else if (kind === "ship-save"){ if (S.authed) saveShip(f); }
   else if (kind === "doc-save"){ if (S.authed) saveDocForm(f.dataset.key, f); }
   else if (kind === "su-pw") stepUpPw();
   else if (kind === "su-code") stepUpCode();
@@ -2666,7 +2867,7 @@ const normNo = v => String(v || "").trim().toUpperCase();
 const keyByPhone = (phone, name, pw) => lookupKey(`P|${normPhone(phone)}|${normName(name)}|${pw}`);
 const keyByOrder = (name, no, pw) => lookupKey(`O|${normName(name)}|${normNo(no)}|${pw}`);
 function orderSummary(no, o){
-  return {no, createdAt: o.createdAt, items: o.items.map(i => ({name: i.name, opt: i.opt || "", qty: i.qty, price: i.price, pre: !!i.pre})), subtotal: o.subtotal, shipping: o.shipping, total: o.total, status: o.status};
+  return {no, createdAt: o.createdAt, items: o.items.map(i => ({name: i.name, opt: i.opt || "", qty: i.qty, price: i.price, pre: !!i.pre, recv: i.recv || ""})), subtotal: o.subtotal, shipping: o.shipping, total: o.total, status: o.status};
 }
 
 /* ---------- actions ---------- */
@@ -2702,9 +2903,9 @@ async function placeOrder(form){
     const order = {
       uid: S.uid, lookupKeys: [k1, k2], consents, preorder: ls.some(l => !!l.p.preorder),
       statusLog: [{s: "입금대기", at, by: "주문자"}],
-      items: ls.map(l => { const it = {pid: l.pid, name: cut(l.p.name, 100), price: unit(l.p), qty: l.qty}; if (l.opt) it.opt = cut(l.opt, 40); if (l.p.preorder) it.pre = true; return it; }),
+      items: ls.map(l => { const it = {pid: l.pid, name: cut(l.p.name, 100), price: unit(l.p), qty: l.qty}; if (l.opt) it.opt = cut(l.opt, 40); if (l.p.preorder) it.pre = true; if (ptypeOf(l.p) === "티켓"){ it.kind = "티켓"; if (l.p.receive) it.recv = l.p.receive; } return it; }),
       subtotal: t.sub, shipping: t.ship, total: t.total,
-      buyer: {name, phone, email: cut(d.email, 100), zip: cut(d.zip, 10), address: cut(d.address, 200), address2: cut(d.address2, 200), memo: cut(d.memo, 300)},
+      buyer: needsShip(ls) ? {name, phone, email: cut(d.email, 100), zip: cut(d.zip, 10), address: cut(d.address, 200), address2: cut(d.address2, 200), memo: cut(d.memo, 300)} : {name, phone, email: cut(d.email, 100), zip: "", address: "현장수령", address2: "", memo: cut(d.memo, 300)},
       pay: "무통장입금", status: "입금대기", stockDeducted: false, createdAt: at
     };
     const sum = orderSummary(no, order); sum.sk = k2;
@@ -2794,7 +2995,9 @@ async function saveItem(col, form){
   const miss = sch.fields.find(f => f.req && (f.t === "image") && !d[f.k]);
   if (miss){ toast(`${miss.l}을(를) 올려 주세요`); return; }
   const data = {};
+  const vis = col === "products" ? new Set(visibleFields(col, d).map(f => f.k)) : null;
   for (const f of sch.fields){
+    if (vis && !vis.has(f.k)){ data[f.k] = f.t === "number" ? null : f.t === "images" ? [] : f.t === "options" ? [] : ""; continue; }
     let v = d[f.k];
     if (f.t === "number") v = (v === "" || v == null) ? null : Math.max(0, Math.round(Number(v)));
     else if (f.t === "images") v = Array.isArray(v) ? v : [];
@@ -2814,6 +3017,8 @@ async function saveItem(col, form){
     data[f.k] = v;
   }
   if (col === "products"){
+    if (data.saleStart && data.saleEnd && kstMs(data.saleEnd) <= kstMs(data.saleStart)){ toast("판매 마감 일시가 시작 일시보다 빨라요"); return; }
+    if (data.ptype === "티켓" && !data.receive){ toast("티켓 수령 방법을 골라 주세요"); return; }
     const sold = S.edit && S.edit.id ? salesOf(S.edit.id, "").sold : 0;
     data.stock = data.stockTotal === null || data.stockTotal === undefined ? null : Math.max(0, data.stockTotal - sold);
   }
