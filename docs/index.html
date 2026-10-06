@@ -1230,7 +1230,7 @@ function vHome(){
     ${loading()}${S.videos.length ? `<div class="grid g3">${S.videos.slice(0,3).map(videoCard).join("")}</div>` : (S.loaded ? `<div class="empty">아직 등록된 영상이 없어요.</div>` : "")}
   </div></section>
   <section class="sec"><div class="wrap">
-    <div class="sec-head"><div><h2>스토어 by Sarak</h2><p>전통춤의 선과 색을 일상의 순간으로</p></div><a class="btn ghost sm" href="#/store">스토어 가기</a></div>
+    <div class="sec-head"><div><h2>스토어</h2><p>전통춤의 선과 색을 일상의 순간으로</p></div><a class="btn ghost sm" href="#/store">스토어 가기</a></div>
     ${visibleProducts().length ? `<div class="grid g4">${visibleProducts().slice(0,4).map(productCard).join("")}</div>` : (S.loaded ? `<div class="empty">곧 상품이 공개됩니다.</div>` : "")}
   </div></section>
   <section class="sec"><div class="wrap">
@@ -1402,7 +1402,7 @@ function vStore(){
   let list = all.slice();
   if (S.storeSort === "low") list.sort((a, b) => unit(a) - unit(b));
   else if (S.storeSort === "high") list.sort((a, b) => unit(b) - unit(a));
-  return `<div class="wrap page-head"><h1>Store by Sarak</h1><p>전통춤의 선과 색을 일상의 순간으로</p></div>
+  return `<div class="wrap page-head"><h1>Store</h1><p>전통춤의 선과 색을 일상의 순간으로</p></div>
   <div class="wrap" style="padding-bottom:80px">${offlineNote()}
     <div class="store-bar"><span class="muted">${list.length}개의 상품</span><a href="#/orders" class="cart-btn" style="margin-left:auto">주문조회</a>
     <label><span class="sr">정렬</span><select class="sort" data-act-change="ssort"><option value="new" ${S.storeSort === "new" ? "selected" : ""}>신상품순</option><option value="low" ${S.storeSort === "low" ? "selected" : ""}>낮은 가격순</option><option value="high" ${S.storeSort === "high" ? "selected" : ""}>높은 가격순</option></select></label></div>
