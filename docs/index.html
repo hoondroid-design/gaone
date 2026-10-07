@@ -705,7 +705,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 48px;font-size:.88rem;col
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, where, orderBy, limit, writeBatch, getDocs, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword, signOut, multiFactor, TotpMultiFactorGenerator, getMultiFactorResolver, sendPasswordResetEmail, sendEmailVerification, reload, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, inMemoryPersistence, onAuthStateChanged, signInAnonymously, signInWithEmailAndPassword, signOut, multiFactor, TotpMultiFactorGenerator, getMultiFactorResolver, sendPasswordResetEmail, sendEmailVerification, reload, reauthenticateWithCredential, EmailAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { FIREBASE_CONFIG, ADMIN_UIDS, REQUIRE_MFA, SITE_NAME } from "./config.js";
 (function(){
@@ -766,10 +766,27 @@ const bankLine = b => !b ? "" : b.legacy ? b.account : `${b.name} ${b.account}${
 /* ---------- firebase ---------- */
 const CONFIGURED = !!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && !/^YOUR_/.test(FIREBASE_CONFIG.apiKey));
 let fapp = null, fdb = null, fauth = null, fstore = null;
-if (CONFIGURED){ fapp = initializeApp(FIREBASE_CONFIG); fdb = initializeFirestore(fapp, {experimentalForceLongPolling: true}); fauth = getAuth(fapp); fauth.languageCode = "ko"; fstore = getStorage(fapp); }
+if (CONFIGURED){ fapp = initializeApp(FIREBASE_CONFIG); fdb = initializeFirestore(fapp, {experimentalForceLongPolling: true}); /* 앱 안 브라우저, 비공개 모드처럼 저장소가 막힌 환경에서도 로그인 연결이 되도록 차례로 시도 */
+  fauth = initializeAuth(fapp, {persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, inMemoryPersistence]}); fauth.languageCode = "ko"; fstore = getStorage(fapp); }
 const wrapDoc = d => ({id: d.id, exists: d.exists(), data: () => d.data()});
 /* never leave the UI stuck: give up waiting after a while and report it */
 const withTimeout = (p, ms = 20000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({code: "timeout"}), ms))]);
+/* 손님용 익명 연결: 필요할 때 다시 시도하고, 실패 원인을 알기 쉽게 안내 */
+let anonTry = null;
+async function ensureAuth(){
+  if (fauth.currentUser){ S.uid = fauth.currentUser.uid; return S.uid; }
+  if (!anonTry) anonTry = withTimeout(signInAnonymously(fauth), 15000).finally(() => { anonTry = null; });
+  const cred = await anonTry; S.uid = cred.user.uid; S.authErr = null; return S.uid;
+}
+const IN_APP = /KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\/|DaumApps|everytimeApp/i.test(navigator.userAgent || "");
+function authFailMsg(e, what){
+  const c = (e && e.code) || "", m = String((e && e.message) || "");
+  if (c === "auth/network-request-failed" || c === "timeout") return `${what} 인터넷 연결이 불안정하거나 광고 차단 앱, 보안 설정이 접속을 막고 있어요. 와이파이와 모바일 데이터를 바꿔 보거나 광고 차단을 잠시 끈 뒤 다시 시도해 주세요.`;
+  if (c === "auth/too-many-requests") return `${what} 접속이 많아 잠시 막혔어요. 몇 분 뒤 다시 시도해 주세요.`;
+  if (c === "auth/operation-not-allowed" || c === "auth/admin-restricted-operation") return `${what} 사이트 설정 문제로 지금은 주문을 받을 수 없어요. 문의로 알려 주시면 바로 확인할게요.`;
+  if (IN_APP || /storage|indexeddb|persistence|cookie/i.test(m)) return `${what} 이 화면(앱 안 브라우저 또는 비공개 모드)에서는 연결이 막혀 있어요. 오른쪽 위 메뉴에서 '다른 브라우저로 열기'를 눌러 크롬이나 삼성 인터넷에서 주문해 주세요.`;
+  return `${what} 잠시 후 다시 시도해 주세요. (오류 코드: ${c || "unknown"})`;
+}
 const failMsg = (err, what) => {
   const c = (err && err.code) || "unknown";
   if (c === "timeout") return `${what} 서버 응답이 없어요. 인터넷 연결을 확인하고, 광고 차단 확장 프로그램이나 보안 프로그램이 있다면 잠시 끄고 다시 시도해 주세요.`;
@@ -1258,14 +1275,15 @@ function vAbout(){
     <div class="story">
       <div><h3>지정과 계보</h3></div>
       <div class="prose">
-        <p>1930년대 한성준이 체계화한 승무가 한영숙에게 이어져 1969년 처음 지정되었고, 1987년에는 이매방의 승무가 지정되었습니다. 이매방류 승무는 현재 보유자 채상묵, 전승교육사 김묘선, 김정수로 계승되고 있습니다.</p>
+        <p>승무는 1969년 7월 4일 국가무형유산으로 지정되었습니다.</p>
+        <p>국립국악원 국악사전에 따르면, 1930년대 한성준이 체계화한 승무가 한영숙에게 이어져 1969년 처음 지정되었고, 1987년에는 이매방의 승무가 지정되었습니다. 이매방류 승무는 채상묵 등으로 계승되고 있습니다.</p>
         ${srcLine(["h_seungmu", "g_seungmu"])}
       </div>
     </div>
     <div class="story fact">
       <div><h3>춤의 구성</h3></div>
       <div class="prose">
-        <p>승무는 장삼춤, 북놀음, 다시 장삼춤으로 이어지는 세 단계를 기본 틀로 합니다. 이매방류 승무는 염불, 반염불, 타령, 자진타령, 굿거리, 법고, 굿거리 순으로 진행됩니다.</p>
+        <p>승무는 장삼춤, 북놀음, 다시 장삼춤으로 이어지는 세 단계를 기본 틀로 합니다. 이야기를 과장마다 담는 일부 유파와 달리, 이매방류와 한영숙류 승무는 서사 없이 다섯 단계의 형식으로 내면의 감정을 심미적으로 드러냅니다. 이매방류는 북놀음이 끝나면 굿거리장단으로 춤을 맺습니다.</p>
         <ol class="flow flow5" aria-label="승무 반주음악의 다섯 과장">
           <li><span class="n">1과장</span><b>염불</b><p>염불장단과 염불도드리</p></li>
           <li><span class="n">2과장</span><b>타령</b><p>타령장단과 자진타령</p></li>
@@ -1297,7 +1315,7 @@ function vAbout(){
       <div>
         <div class="costumes">
           <div class="costume"><h3>장삼과 기본 복식</h3><p>이매방류의 기본형은 흰 장삼에 홍가사(홍띠)를 두르고, 남녀 모두 옥색 바지·저고리와 치마·저고리를 입습니다. 흑장삼을 입을 때는 남녀 모두 흰색 기본 복식을 갖춥니다.</p></div>
-          <div class="costume"><h3>고깔</h3><p>이매방류 승무 고깔은 아무런 무늬나 글자가 없는 완전한 흰색(순백)으로 만듭니다. 주로 얇고 비치는 모시나 삼베, 혹은 박사(薄紗)나 갑사 같은 고급 실크 천을 사용하여 정갈하고 고고한 멋을 강조합니다.</p></div>
+          <div class="costume"><h3>고깔</h3><p>이매방류의 흰 고깔은 윗부분에 나비 문양이 있고, 양쪽 옆에 '부귀다남(富貴多男)'이라는 글귀가 적혀 있습니다.</p></div>
           <div class="costume"><h3>홍가사</h3><p>흰 장삼 위에 두르는 붉은 가사(홍띠)로, 이매방류 기본형 복식의 일부입니다.</p></div>
           <div class="costume"><h3>북, 북채, 북틀</h3><p>북은 높이를 조절할 수 있는 북틀(높이 약 140cm)에 고정합니다. 북은 높이 약 23cm, 지름 약 38cm, 북채는 길이 약 27cm입니다. 양손의 북채는 소매를 뿌리는 힘을 더하고 소매의 연장선을 곧게 뻗게 합니다.</p></div>
         </div>
@@ -1471,6 +1489,7 @@ function vCheckout(){
   return `<div class="wrap page-head"><h1>주문서 작성</h1></div>
   <form class="wrap cart" data-form="checkout" data-draft="checkout" novalidate><div>
     
+    ${IN_APP ? `<div class="notice">카카오톡, 인스타그램 같은 앱 안에서 열린 화면이에요. 주문이 되지 않으면 오른쪽 위 메뉴의 <b>'다른 브라우저로 열기'</b>를 눌러 크롬이나 삼성 인터넷에서 주문해 주세요.</div>` : ""}
     <fieldset class="fieldset"><h3>주문자 정보</h3><div class="form">${f("name","이름","text",1)}${f("phone","휴대폰 번호 (숫자만)","tel",1,0,"01012345678")}${f("email","이메일","email",0,1)}</div></fieldset>
     ${needsShip(ls) ? `<fieldset class="fieldset"><h3>배송지</h3><div class="form">
       <div class="fld"><label for="co-zip">우편번호 <i>*</i></label><div class="zipbox"><input id="co-zip" name="zip" value="${esc(d.zip || "")}" inputmode="numeric" placeholder="주소 찾기를 눌러 주세요" required><button type="button" class="btn sm" data-act="postcode">주소 찾기</button></div></div><div></div>
@@ -1566,6 +1585,7 @@ async function custCancel(no){
   const cur = normStatus(((S.lookupStatus || {})[no] || o).status);
   if (cur !== "입금대기"){ toast("이 주문은 취소할 수 없어요. 관리자에게 문의해 주세요."); return; }
   const at = Date.now(), entry = {s: "취소", at, by: "주문자"};
+  try { await ensureAuth(); } catch(e){ toast(authFailMsg(e, "취소 연결에 실패했어요.")); return; }
   S.busy = true; render();
   try {
     const b = writeBatch(fdb);
@@ -2989,7 +3009,10 @@ async function placeOrder(form){
     if (miss){ toast(`[필수] ${miss.termsTitle || "구매 약관"} (${miss.name})에 동의해 주세요`); return true; }
     if (!d.agree){ toast("[필수] 주문 내용 확인과 개인정보 동의에 체크해 주세요"); return true; }
   })) return;
-  if (!S.online || !S.uid){ toast("잠시 후 다시 시도해 주세요. 연결을 준비하고 있어요."); return; }
+  if (!S.online){ toast("사이트 연결 설정이 아직 완료되지 않았어요."); return; }
+  S.busy = true; render();
+  try { await ensureAuth(); } catch(e){ S.busy = false; render(); toast(authFailMsg(e, "주문 연결에 실패했어요.")); return; }
+  S.busy = false;
   const ls = checkoutLines(), fromBuyNow = isBuyNow();
   for (const l of ls){ if (lineBad(l)){ toast(`'${l.p.name}${l.opt ? " " + l.opt : ""}' 재고가 부족해요. 장바구니를 확인해 주세요.`); return; } }
   if (banksOf(ls).length > 1){ toast("입금 계좌가 다른 상품은 따로 주문해 주세요."); return; }
@@ -3034,7 +3057,8 @@ async function placeOrder(form){
 async function sendInquiry(form){
   const key = form.dataset.draft;
   if (firstInvalid(form, () => { if (!draft(key).agree){ toast("개인정보 수집, 이용 동의에 체크해 주세요"); return true; } })) return;
-  if (!S.online || !S.uid){ toast("잠시 후 다시 시도해 주세요. 연결을 준비하고 있어요."); return; }
+  if (!S.online){ toast("사이트 연결 설정이 아직 완료되지 않았어요."); return; }
+  try { await ensureAuth(); } catch(e){ toast(authFailMsg(e, "문의 연결에 실패했어요.")); return; }
   const d = clone(draft(key)); delete d.agree;
   const q = {uid: S.uid, kind: ["business", "store"].includes(form.dataset.kind) ? form.dataset.kind : "performance", status: "새 문의", createdAt: Date.now()};
   ["type","rep","org","name","phone","email","eventDate","place","audience","budget","link"].forEach(k => q[k] = String(d[k] || "").slice(0, 300));
@@ -3256,7 +3280,7 @@ async function boot(){
     const ok = S.isAdmin && (!REQUIRE_MFA || S.mfaOk);
     if (ok && !S.authed){ S.authed = true; startAdmin(); }
     else if (!ok && S.authed) stopAdmin();
-    if (!u) signInAnonymously(fauth).catch(() => {});
+    if (!u) ensureAuth().catch(e => { S.authErr = (e && e.code) || "error"; setTimeout(() => { if (!fauth.currentUser) ensureAuth().catch(() => {}); }, 5000); });
     render();
   });
   setTimeout(() => { if (!S.loaded){ S.loaded = true; softRender(); } }, 6000);
