@@ -251,8 +251,10 @@ p{margin:0 0 1em}
 .odg h4{font-size:.9rem;margin:0 0 8px;font-family:var(--sans)}
 .kv2{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:.86rem}
 .kv2 dt{color:var(--muted)}
-.kv2 dd{margin:0;text-align:right;word-break:break-all}
-.kv2 dd:has(+ dt), .kv2 dd:last-child{white-space:nowrap}
+.kv2 dd{margin:0;text-align:right;min-width:0;overflow-wrap:anywhere}
+.kv2.money dd{white-space:nowrap}
+.kv2.ship dd{text-align:left}
+.odg > section{min-width:0}
 .memo-box{grid-column:1/-1}
 .memo-box textarea{width:100%;padding:10px 12px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:inherit;resize:vertical}
 .lock-tag,.memo-tag,.mkt-tag{display:inline-block;font-size:.7rem;padding:1px 6px;border:1px solid var(--line);color:var(--muted);font-weight:400;margin-left:6px;vertical-align:middle}
@@ -426,6 +428,22 @@ p{margin:0 0 1em}
 .pd-title h1{margin:0}
 .share-btn{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:none;color:var(--ink);padding:8px 14px;border-radius:999px;font-size:.85rem;cursor:pointer;white-space:nowrap;margin-top:4px}
 .share-btn:hover{border-color:var(--ink)}
+.pchips{display:flex;flex-wrap:wrap;gap:4px}
+.pchips.on-img{position:absolute;top:10px;left:10px;right:10px;z-index:2;pointer-events:none}
+.pchips.pd-chips{margin:0 0 8px}
+.pchip{display:inline-block;font-size:.7rem;font-weight:600;letter-spacing:.02em;padding:3px 8px;line-height:1.3;white-space:nowrap;background:rgba(11,11,10,.82);color:var(--ink);border:1px solid rgba(236,234,228,.35)}
+.pchip.c-new{background:#ECEAE4;color:#0B0B0A;border-color:#ECEAE4}
+.pchip.c-hot{background:#A6383B;color:#fff;border-color:#A6383B}
+.pchip.c-best{background:#B39C68;color:#111;border-color:#B39C68}
+.pchip.c-steady{background:rgba(11,11,10,.82);color:#ECEAE4;border-color:#ECEAE4}
+.pchip.c-sig{background:rgba(11,11,10,.82);color:#D25A5C;border-color:#D25A5C}
+.pchip.c-prem{background:#1d1a12;color:#D9C38D;border-color:#B39C68}
+.pd-chips .pchip{font-size:.78rem;padding:4px 10px}
+.pcard .soldout{top:auto;bottom:10px}
+.chip-pick{display:flex;flex-wrap:wrap;gap:8px}
+.chip-opt{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);cursor:pointer;opacity:.55}
+.chip-opt.on{opacity:1;border-color:var(--ink)}
+.chip-opt input{margin:0}
 .codebox{width:100%;min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);white-space:pre}
 /* repertoire */
 .reps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
@@ -1078,9 +1096,14 @@ function videoCard(v){
     <div class="vthumb">${SLEEVE}<span class="cat">${esc([v.repertoire, v.category].filter(Boolean).join(", ") || "영상")}</span><span class="t">${esc(v.title)}</span><span class="play" aria-hidden="true">${id ? "▶" : "–"}</span></div>
     <div class="vmeta">${fmtDate(v.date)}${v.venue ? `, ${esc(v.venue)}` : ""}${id ? "" : " (영상 링크 준비 중)"}</div></button>`;
 }
+/* 상품 칩: 관리자가 상품마다 골라 붙이는 표시 */
+const CHIPS = ["신상품", "마감임박", "베스트셀러", "스테디셀러", "시그니처", "프리미엄"];
+const chipCls = c => ({"신상품": "c-new", "마감임박": "c-hot", "베스트셀러": "c-best", "스테디셀러": "c-steady", "시그니처": "c-sig", "프리미엄": "c-prem"})[c] || "";
+const chipsOf = p => (Array.isArray(p.chips) ? p.chips : []).filter(c => CHIPS.includes(c));
+const chipsHtml = (p, cls) => { const cs = chipsOf(p); return cs.length ? `<div class="pchips ${cls || ""}">${cs.map(c => `<span class="pchip ${chipCls(c)}">${esc(c)}</span>`).join("")}</div>` : ""; };
 function productCard(p){
   const ss = saleState(p);
-  return `<a class="pcard" href="#/product/${encodeURIComponent(p.id)}"><div class="pimg">${imgOr((p.images || [])[0], p.id, p.name)}${ss === "판매마감" ? `<span class="soldout">판매 마감</span>` : ss === "판매예정" ? `<span class="soldout soon">판매 예정</span>` : soldOut(p) ? `<span class="soldout">SOLD OUT</span>` : (hasOpts(p) && p.options.some(optSoldOut) ? `<span class="soldout part">${esc(p.options.filter(optSoldOut).map(o => o.name).join(", "))} SOLD OUT</span>` : "")}</div>
+  return `<a class="pcard" href="#/product/${encodeURIComponent(p.id)}"><div class="pimg">${imgOr((p.images || [])[0], p.id, p.name)}${chipsHtml(p, "on-img")}${ss === "판매마감" ? `<span class="soldout">판매 마감</span>` : ss === "판매예정" ? `<span class="soldout soon">판매 예정</span>` : soldOut(p) ? `<span class="soldout">SOLD OUT</span>` : (hasOpts(p) && p.options.some(optSoldOut) ? `<span class="soldout part">${esc(p.options.filter(optSoldOut).map(o => o.name).join(", "))} SOLD OUT</span>` : "")}</div>
   <div class="ptag">${esc(ptypeOf(p))}${isPickup(p) ? " · 현장수령" : ptypeOf(p) === "티켓" && p.receive ? " · " + esc(p.receive) : ""}</div><div class="pname">${esc(p.name)}</div><div class="pprice">${priceHtml(p)}</div></a>`;
 }
 /* 공연일정: 새 '공연일정' 메뉴 + 예전 소식의 '일정' 글을 함께 */
@@ -1440,7 +1463,7 @@ function vProduct(id){
     <div>${imgs.length ? `<button type="button" class="pd-main zoomable" data-act="pzoom" data-id="${esc(id)}" data-i="${cur}" aria-label="사진 크게 보기">${imgOr(imgs[cur], p.id, p.name)}<span class="zoom-hint" aria-hidden="true">⤢ 크게 보기</span></button>` : `<div class="pd-main">${imgOr(imgs[cur], p.id, p.name)}</div>`}
       ${imgs.length > 1 ? `<div class="thumbs">${imgs.map((im, i) => `<button class="${i === cur ? "on" : ""}" data-act="pdimg" data-id="${esc(id)}" data-i="${i}" aria-label="${i+1}번째 이미지"><img src="${blob(im)}" alt=""></button>`).join("")}</div>` : ""}</div>
     <div>
-      <div class="pd-title"><h1>${esc(p.name)}</h1><button type="button" class="share-btn" data-act="share" data-id="${esc(id)}" aria-label="이 상품 공유하기"><span aria-hidden="true">↗</span> 공유하기</button></div>
+      ${chipsHtml(p, "pd-chips")}<div class="pd-title"><h1>${esc(p.name)}</h1><button type="button" class="share-btn" data-act="share" data-id="${esc(id)}" aria-label="이 상품 공유하기"><span aria-hidden="true">↗</span> 공유하기</button></div>
       ${p.summary ? `<p class="muted">${esc(p.summary)}</p>` : ""}
       <div class="price-big">${priceHtml(p)}</div>
       ${p.preorder ? `<p class="pre-badge">사전 주문 제작 상품 · 환불 불가</p>` : ""}
@@ -1677,6 +1700,7 @@ const SCHEMA = {
   products: { label: "상품", fields: [
     {k:"ptype",l:"상품 유형",t:"select",opts:["의류","티켓","일반상품"],req:1,wide:1,hint:"유형에 따라 아래 입력 칸이 바뀌어요. 의류: 사이즈별 재고 / 티켓: 좌석(구역)별 재고, 수령 방법, 공연 정보 / 일반상품: 옵션별 재고."},
     {k:"name",l:"상품명",req:1,wide:1},
+    {k:"chips",l:"상품 칩 (여러 개 선택 가능)",t:"chips",wide:1,hint:"고른 칩이 상품 목록의 썸네일 위와 상품 상세 화면에 표시돼요. 고른 순서대로 나와요."},
     {k:"status",l:"판매 상태",t:"select",opts:["판매중","품절","숨김"],req:1,hint:"재고가 모두 0이 되면 자동으로 SOLD OUT 표시돼요. '품절'은 재고와 관계없이 판매를 멈출 때 써요."},{k:"price",l:"정가 (원)",t:"number",req:1},{k:"salePrice",l:"할인가 (원)",t:"number",hint:"비워 두면 정가로 판매해요."},
     {k:"saleStart",l:"판매 시작 일시 (선택)",t:"datetime",hint:"예매 오픈처럼 정해진 시각부터 팔 때 입력해요. 그 전에는 '판매 예정'으로 보여요."},
     {k:"saleEnd",l:"판매 마감 일시",t:"datetime",hint:"이 시각이 되면 자동으로 '판매 마감'되어 주문할 수 없어요. 날짜를 늦추면 다시 열려요. 비워 두면 마감 없이 팔려요."},
@@ -1792,6 +1816,10 @@ function fieldHtml(f, d, key){
         <button type="button" class="btn ghost sm" data-act="opt-rm" data-i="${i}">삭제</button></div>`; }).join("")}</div>
       <div class="btn-row" style="margin-top:8px"><button type="button" class="btn ghost sm" data-act="opt-add">+ 사이즈 추가</button>${rows.length ? "" : f.ptype === "티켓" ? `<button type="button" class="btn ghost sm" data-act="opt-preset" data-v="seat">자유석 한 줄 넣기</button>` : f.ptype === "일반상품" ? "" : `<button type="button" class="btn ghost sm" data-act="opt-preset">S, M, L, XL 한 번에 넣기</button>`}</div>
       ${f.hint ? `<p class="hint">${esc(f.hint)}</p>` : ""}</div>`;
+  }
+  if (f.t === "chips"){
+    const cur = Array.isArray(d[f.k]) ? d[f.k] : [];
+    return `<div class="fld wide"><span class="lbl">${esc(f.l)}</span><div class="chip-pick">${CHIPS.map(c => `<label class="chip-opt ${cur.includes(c) ? "on" : ""}"><input type="checkbox" data-chip="${esc(c)}" ${cur.includes(c) ? "checked" : ""}><span class="pchip ${chipCls(c)}">${esc(c)}</span></label>`).join("")}</div>${f.hint ? `<p class="hint">${esc(f.hint)}</p>` : ""}</div>`;
   }
   if (f.t === "stocktotal"){
     const pid = S.edit && S.edit.id, sa = pid ? salesOf(pid, "") : {sold: 0, wait: 0}, v = d[f.k];
@@ -2375,8 +2403,8 @@ function orderDetail(o){
   const b = o.buyer || {}, c = o.consents || {}, memo = S.memos && S.memos[o.id];
   const draftMemo = (S.drafts.memo || {})[o.id];
   return `<tr class="odetail"><td colspan="6"><div class="odg">
-    <section><h4>배송 정보</h4><dl class="kv2"><dt>주문자</dt><dd>${esc(b.name)}</dd><dt>휴대폰</dt><dd>${esc(b.phone)}</dd>${b.email ? `<dt>이메일</dt><dd>${esc(b.email)}</dd>` : ""}<dt>주소</dt><dd>${esc([b.zip && `(${b.zip})`, b.address, b.address2].filter(Boolean).join(" "))}</dd>${b.memo ? `<dt>배송 메모</dt><dd>${esc(b.memo)}</dd>` : ""}${o.courier && o.trackingNo ? `<dt>배송 조회</dt><dd>${trackLink(o.courier, o.trackingNo)}</dd>` : ""}</dl></section>
-    <section><h4>결제 금액</h4><dl class="kv2">${(o.items || []).map(i => `<dt>${esc(i.name)}${i.opt ? ` (${esc(i.opt)})` : ""} × ${i.qty}${i.pre ? ` <em class="pre-tag">사전제작</em>` : ""}</dt><dd>${won(i.price * i.qty)}</dd>`).join("")}<dt>상품 금액</dt><dd>${won(o.subtotal)}</dd><dt>배송비</dt><dd>${o.shipping ? won(o.shipping) : "무료"}</dd><dt><b>총 결제 금액</b></dt><dd><b>${won(o.total)}</b></dd></dl></section>
+    <section><h4>배송 정보</h4><dl class="kv2 ship"><dt>주문자</dt><dd>${esc(b.name)}</dd><dt>휴대폰</dt><dd>${esc(b.phone)}</dd>${b.email ? `<dt>이메일</dt><dd>${esc(b.email)}</dd>` : ""}<dt>주소</dt><dd>${esc([b.zip && `(${b.zip})`, b.address, b.address2].filter(Boolean).join(" "))}</dd>${b.memo ? `<dt>배송 메모</dt><dd>${esc(b.memo)}</dd>` : ""}${o.courier && o.trackingNo ? `<dt>배송 조회</dt><dd>${trackLink(o.courier, o.trackingNo)}</dd>` : ""}</dl></section>
+    <section><h4>결제 금액</h4><dl class="kv2 money">${(o.items || []).map(i => `<dt>${esc(i.name)}${i.opt ? ` (${esc(i.opt)})` : ""} × ${i.qty}${i.pre ? ` <em class="pre-tag">사전제작</em>` : ""}</dt><dd>${won(i.price * i.qty)}</dd>`).join("")}<dt>상품 금액</dt><dd>${won(o.subtotal)}</dd><dt>배송비</dt><dd>${o.shipping ? won(o.shipping) : "무료"}</dd><dt><b>총 결제 금액</b></dt><dd><b>${won(o.total)}</b></dd></dl></section>
     <section><h4>진행 기록</h4><ul class="olog">${orderLog(o).map(l => `<li><span>${fmtDT(l.at)}</span><span>${esc(normStatus(l.s))}${l.by ? ` <span class="muted">(${esc(l.by)})</span>` : ""}</span></li>`).join("")}</ul></section>
     <section><h4>동의 내역</h4><ul class="olog">
       <li><span>${fmtDT((c.privacy || {}).at || o.createdAt)}</span><span>[필수] 개인정보 수집, 이용(배송)</span></li>
@@ -2912,6 +2940,12 @@ function updateOptRow(inp){
   if (cells[1]){ cells[1].className = "optnum" + (rem !== null && rem <= 0 ? " zero" : ""); cells[1].innerHTML = rem === null ? "∞" : rem <= 0 ? `0 <span class="so-tag">SOLD OUT</span>` : String(rem); }
 }
 function bindDraft(e){
+  if (e.target.dataset && e.target.dataset.chip !== undefined){
+    if (e.type !== "change") return;
+    const d = draft("edit"), c = e.target.dataset.chip; d.chips = Array.isArray(d.chips) ? d.chips.filter(x => x !== c) : [];
+    if (e.target.checked) d.chips.push(c);
+    e.target.closest(".chip-opt")?.classList.toggle("on", e.target.checked); return;
+  }
   if (e.target.dataset && e.target.dataset.prI !== undefined){ const r = (S.drafts.perfRefs || [])[Number(e.target.dataset.prI)]; if (r) r[e.target.dataset.prK] = e.target.value; return; }
   if (e.target.dataset && e.target.dataset.keep){ S.keep[e.target.dataset.keep] = e.target.value; return; }
   if (e.target.dataset && e.target.dataset.optI !== undefined){
@@ -3133,6 +3167,7 @@ async function saveItem(col, form){
     let v = d[f.k];
     if (f.t === "number") v = (v === "" || v == null) ? null : Math.max(0, Math.round(Number(v)));
     else if (f.t === "images") v = Array.isArray(v) ? v : [];
+    else if (f.t === "chips") v = (Array.isArray(v) ? v : []).filter(c => CHIPS.includes(c));
     else if (f.t === "stocktotal") v = (v === "" || v == null) ? null : Math.max(0, Math.round(Number(v)));
     else if (f.t === "options"){
       const seen = new Set(); v = [];
