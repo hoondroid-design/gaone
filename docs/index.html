@@ -717,8 +717,8 @@ footer{border-top:1px solid var(--line);padding:40px 0 48px;font-size:.88rem;col
 <div id="modal"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <button type="button" id="totop" class="totop" aria-label="맨 위로 이동" tabindex="-1"><span aria-hidden="true">↑</span>TOP</button>
-<!-- ▼ 공연일정 검색 노출 영역: 관리자 > 공연일정 > '검색 노출용 코드'로 만든 내용을 이 두 줄 사이에 붙여 넣으세요 ▼ -->
-<!-- ▲ 공연일정 검색 노출 영역 끝 ▲ -->
+<!-- ▼ 검색 노출 영역: 관리자 > 사이트 전체 > 검색 · 공유 설정 > '검색 노출용 코드'로 만든 내용을 이 두 줄 사이에 붙여 넣으세요 ▼ -->
+<!-- ▲ 검색 노출 영역 끝 ▲ -->
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -1192,24 +1192,63 @@ function eventLD(x){
   if (x.ticketUrl && /^https?:\/\//i.test(x.ticketUrl)){ ev.offers = {"@type": "Offer", url: x.ticketUrl, availability: "https://schema.org/InStock", priceCurrency: "KRW"}; const n = String(x.price || "").replace(/[^0-9]/g, ""); if (n) ev.offers.price = n; else if (/무료/.test(x.price || "")) ev.offers.price = "0"; }
   return ev;
 }
+/* 스토어 상품(Product), 언론보도(NewsArticle), 무용가(Person) 정보 */
+const absImg = u => { const v = blob(u); return v ? v : ""; };
+function productLD(p){
+  const ss = saleState(p), img = (p.images || []).map(absImg).filter(Boolean);
+  const o = {"@context": "https://schema.org", "@type": "Product", name: p.name, url: SITE_URL() + "/#/product/" + encodeURIComponent(p.id),
+    brand: {"@type": "Brand", name: S.profile.siteTitle || S.profile.name || ""},
+    offers: {"@type": "Offer", price: String(unit(p)), priceCurrency: "KRW", url: SITE_URL() + "/#/product/" + encodeURIComponent(p.id),
+      availability: ss === "판매중" ? "https://schema.org/InStock" : ss === "판매예정" ? "https://schema.org/PreOrder" : "https://schema.org/OutOfStock"}};
+  if (img.length) o.image = img.slice(0, 5);
+  const desc = String(p.summary || p.description || "").replace(/\s+/g, " ").trim(); if (desc) o.description = desc.slice(0, 500);
+  if (p.ptype) o.category = p.ptype;
+  return o;
+}
+function newsLD(n){
+  const o = {"@context": "https://schema.org", "@type": "NewsArticle", headline: String(n.title || "").slice(0, 110), url: n.link && /^https?:\/\//i.test(n.link) ? n.link : SITE_URL() + "/#/news/" + encodeURIComponent(n.id),
+    about: {"@type": "Person", name: S.profile.name || ""}};
+  if (n.date) o.datePublished = n.date;
+  if (n.image) o.image = [absImg(n.image)];
+  if (n.source) o.publisher = {"@type": "Organization", name: n.source};
+  const d = newsSummary(n, 150); if (d) o.description = d;
+  return o;
+}
+function personLD(){
+  const p = S.profile; if (!p.name) return null;
+  const o = {"@context": "https://schema.org", "@type": "Person", name: p.name, url: SITE_URL()};
+  if (p.nameEn) o.alternateName = p.nameEn; if (p.title) o.jobTitle = p.title;
+  const same = sns(p).map(x => x.url); if (same.length) o.sameAs = same;
+  if (p.photo) o.image = absImg(p.photo);
+  return o;
+}
+const seoProducts = () => visibleProducts().slice(0, 30);
+const seoNews = () => pressList().slice(0, 20);
+const seoEvents = () => allSchedules().filter(x => !isPast(x)).slice(0, 20);
+function allLD(){
+  return [personLD(), ...seoEvents().filter(x => x.venue).map(eventLD), ...seoProducts().map(productLD), ...seoNews().map(newsLD)].filter(Boolean);
+}
 function applyEventsLD(){
-  const list = allSchedules().filter(x => !isPast(x) && x.venue).slice(0, 20).map(eventLD);
+  const list = allLD();
   let el = document.getElementById("ld-events");
   if (!list.length){ if (el) el.remove(); return; }
   if (!el){ el = document.createElement("script"); el.type = "application/ld+json"; el.id = "ld-events"; document.head.appendChild(el); }
-  el.textContent = JSON.stringify(list.length === 1 ? list[0] : list);
+  el.textContent = JSON.stringify(list);
 }
+/* 네이버처럼 화면을 실행하지 않는 수집기용: index.html에 붙여 넣을 글자 + 구조화 데이터 */
 function seoEventsCode(){
-  const list = allSchedules().filter(x => !isPast(x)).slice(0, 20);
-  const ld = JSON.stringify(list.filter(x => x.venue).map(eventLD), null, 1).replace(/</g, "\\u003c");
-  const items = list.map(x => `  <li><strong>${esc(x.title)}</strong> | ${esc(schedWhen(x))} | ${esc(x.venue || "")}${x.price ? ` | ${esc(x.price)}` : ""}${x.ticketName ? ` | 예매: ${esc(x.ticketName)}` : ""}${x.summary ? `<br>${esc(String(x.summary).replace(/\s+/g, " ").slice(0, 200))}` : ""}</li>`).join("\n");
+  const name = S.profile.name || "", one = t => esc(String(t || "").replace(/\s+/g, " ").trim());
+  const ev = seoEvents(), pr = seoProducts(), nw = seoNews();
+  const ld = JSON.stringify(allLD(), null, 1).replace(/</g, "\\u003c");
+  const sec = (title, rows) => rows.length ? ` <h2>${title}</h2>\n <ul>\n${rows.join("\n")}\n </ul>\n` : "";
+  const evRows = ev.map(x => `  <li><a href="/#/schedule/${encodeURIComponent(x.id)}"><strong>${one(x.title)}</strong></a> | ${one(schedWhen(x))} | ${one(x.venue)}${x.price ? ` | ${one(x.price)}` : ""}${x.ticketName ? ` | 예매: ${one(x.ticketName)}` : ""}${x.summary ? `<br>${one(String(x.summary).slice(0, 200))}` : ""}</li>`);
+  const prRows = pr.map(p => `  <li><a href="/#/product/${encodeURIComponent(p.id)}"><strong>${one(p.name)}</strong></a> | ${one(ptypeOf(p))} | ${won(unit(p))}${chipsOf(p).length ? ` | ${one(chipsOf(p).join(", "))}` : ""}${saleState(p) !== "판매중" ? ` | ${one(saleState(p))}` : ""}${p.summary ? `<br>${one(String(p.summary).slice(0, 200))}` : ""}</li>`);
+  const nwRows = nw.map(n => `  <li><a href="/#/news/${encodeURIComponent(n.id)}"><strong>${one(n.title)}</strong></a> | ${one(String(n.date || "").replace(/-/g, "."))}${n.source ? ` | ${one(n.source)}` : ""}${newsSummary(n) ? `<br>${one(newsSummary(n))}` : ""}</li>`);
   return `<script type="application/ld+json" id="ld-static">${ld}</`+`script>
-<section id="seo-static" aria-label="공연일정">
- <h2>${esc(S.profile.name || "")} 공연일정</h2>
- <ul>
-${items}
- </ul>
-</section>`;
+<section id="seo-static" aria-label="${one(name)} 주요 정보">
+ <h1>${one(name)}${S.profile.title ? ` | ${one(S.profile.title)}` : ""}</h1>
+ <p>${REP.map(r => r.name).join(", ")}</p>
+${sec(`${one(name)} 공연일정`, evRows)}${sec(`${one(name)} 스토어 상품`, prRows)}${sec(`${one(name)} 언론보도`, nwRows)}</section>`;
 }
 
 /* 본문 앞부분을 공백 제외 약 100자로 자동 요약 (본문이 없으면 예전에 입력한 요약 사용) */
@@ -2174,7 +2213,8 @@ function vAdmin(tab){
   else if (tab === "marketing") body = adminMarketing();
   else if (tab === "inquiries") body = adminInquiries();
   else if (tab === "account") body = adminAccount();
-  else if (tab === "meta") body = adminMeta();
+  else if (tab === "meta") body = adminMeta() + schedSeoBox();
+  else if ((tab === "products" || tab === "news") && !(S.edit && S.edit.col === tab)) body = adminCollection(tab) + schedSeoBox();
   else if (tab === "store") body = adminStore();
   else if (SCHEMA[tab]) body = adminCollection(tab);
   else body = "";
@@ -2249,11 +2289,13 @@ async function exportStats(){
   window.XLSX.writeFile(wb, `방문통계_${st.n}일_${stampNow()}.xlsx`);
 }
 function schedSeoBox(){
-  const code = seoEventsCode(), n = allSchedules().filter(x => !isPast(x)).length;
-  return `<div class="fieldset" style="margin-top:36px"><h3>검색 노출용 코드</h3>
-    <p class="muted" style="font-size:.9rem">구글은 사이트를 열어 공연 정보를 자동으로 읽어 가요. <b>네이버는 index.html 파일 글자만 읽기 때문에</b>, 공연을 등록하거나 바꾼 뒤에는 아래 코드를 index.html에 붙여 넣어야 검색에 반영돼요. (지금 다가오는 공연 ${n}건)</p>
+  const code = seoEventsCode(), ne = seoEvents().length, np = seoProducts().length, nn = seoNews().length;
+  const stamp = S.seoCodeAt ? ` (마지막으로 복사한 때: ${esc(fmtDT(S.seoCodeAt))})` : "";
+  return `<div class="fieldset" style="margin-top:36px"><h3>검색 노출용 코드 <span class="muted" style="font-size:.85rem;font-weight:400">공연 ${ne} · 상품 ${np} · 언론보도 ${nn}</span></h3>
+    <p class="muted" style="font-size:.9rem">공연일정, 스토어 상품, 언론보도의 이름과 소개가 담긴 코드예요. 구글은 사이트를 열어 자동으로 읽지만, <b>네이버는 index.html 파일 글자만 읽기 때문에</b> 상품, 공연, 기사를 등록하거나 바꾼 뒤에는 이 코드를 index.html에 붙여 넣어야 검색에 반영돼요.</p>
     <textarea class="codebox" readonly aria-label="검색 노출용 코드" onfocus="this.select()">${esc(code)}</textarea>
-    <p class="hint" style="margin-top:8px">상자를 누르면 전체가 선택돼요. GitHub의 docs/index.html을 연필 아이콘으로 열고, 위쪽의 <code>▼ 공연일정 검색 노출 영역</code> 줄과 <code>▲ … 끝 ▲</code> 줄 사이의 내용을 이 코드로 바꿔 Commit하세요. 어렵다면 이 코드를 Claude에게 보내 주세요.</p></div>`;
+    <div class="btn-row" style="margin-top:8px"><button type="button" class="btn sm" data-act="seo-copy">코드 전체 복사</button></div>
+    <p class="hint" style="margin-top:8px">GitHub의 docs/index.html을 연필 아이콘으로 열고 Ctrl+F로 <code>▼ 검색 노출 영역</code>을 찾아, 그 줄과 <code>▲ 검색 노출 영역 끝 ▲</code> 줄 사이의 내용을 이 코드로 바꿔 Commit하세요. 그다음 네이버 서치어드바이저에서 '웹페이지 수집'을 요청하면 더 빨리 반영돼요. 어렵다면 이 코드를 Claude에게 보내 주세요.${stamp}</p></div>`;
 }
 function parseRefLines(text){
   const out = [];
@@ -2656,7 +2698,7 @@ let ldSig = "";
 function render(){
   S.pending = false;
   const keep = {}; document.querySelectorAll("[data-keep-scroll]").forEach(el => { if (el.id) keep[el.id] = el.scrollLeft; });
-  const sig = JSON.stringify([S.schedules, (S.news || []).filter(n => n.type === "일정").length, S.profile.name]); if (sig !== ldSig){ ldSig = sig; applyEventsLD(); }
+  const sig = JSON.stringify([S.schedules, S.news, S.products, S.profile.name, S.profile.title, S.profile.photo]); if (sig !== ldSig){ ldSig = sig; applyEventsLD(); }
   $("#hdr").innerHTML = vHeader();
   $("#main").innerHTML = view();
   $("#ftr").innerHTML = vFooter();
@@ -2825,6 +2867,7 @@ document.addEventListener("click", async e => {
     case "pr-import": if (!S.authed) break; S.drafts.perfRefs = sortRefs((S.performances || []).map(x => ({year: String(x.date || "").slice(0, 4), title: x.title || "", note: [x.venue, x.role].filter(Boolean).join(", ")}))); toast("예전 기록을 표로 불러왔어요. 확인 후 저장을 눌러 주세요"); render(); break;
     case "pr-save": if (S.authed) savePerfRefs(); break;
     case "copy": copyText(el.dataset.v || ""); break;
+    case "seo-copy": { const t = seoEventsCode(); try { await navigator.clipboard.writeText(t); } catch(_){ const ta = document.querySelector(".codebox[aria-label='검색 노출용 코드']"); if (ta){ ta.select(); try { document.execCommand("copy"); } catch(__){} } } S.seoCodeAt = Date.now(); toast("검색 노출용 코드를 복사했어요. index.html의 검색 노출 영역에 붙여 넣어 주세요."); render(); break; }
     case "share": shareProduct(id); break;
     case "pzoom": { const p = findP(id); if (!p) break; const imgs = (p.images || []).map(u => ({src: blob(u), cap: p.name})); if (!imgs.length) break; S.modal = {type: "viewer", list: imgs, i: Number(el.dataset.i) || 0}; render(); document.querySelector(".viewer [data-act=close]")?.focus(); break; }
     case "vstep": { const n = S.modal.list.length; S.modal.i = (S.modal.i + Number(el.dataset.d) + n) % n; render(); break; }
@@ -3320,7 +3363,7 @@ async function boot(){
   setTimeout(() => { if (!S.loaded){ S.loaded = true; softRender(); } }, 6000);
 }
 lastRoute = location.hash;
-document.getElementById("seo-static")?.remove();
+document.getElementById("seo-static")?.remove(); document.getElementById("ld-static")?.remove();
 gaInit(); trackView();
 restartSlides();
 boot();
