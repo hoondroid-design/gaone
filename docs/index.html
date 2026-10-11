@@ -498,6 +498,44 @@ p{margin:0 0 1em}
 
 /* gallery */
 .masonry{columns:3 260px;column-gap:14px}
+.sec-archive{background:color-mix(in srgb, var(--surface) 45%, var(--paper))}
+.sec-archive + .sec{border-top-color:transparent}
+.amosaic{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:clamp(130px,15vw,200px);gap:10px}
+.amosaic.n1{grid-template-columns:1fr;grid-auto-rows:clamp(220px,34vw,440px)}
+.amosaic.n2{grid-template-columns:1fr 1fr;grid-auto-rows:clamp(200px,26vw,340px)}
+.amosaic.n3{grid-template-columns:2fr 1fr}
+.amosaic.n4{grid-template-columns:2fr 1fr 1fr}
+.amosaic .big{grid-column:span 2;grid-row:span 2}
+.amosaic.n1 .big,.amosaic.n2 .big{grid-column:auto;grid-row:auto}
+.amosaic.n3 .big,.amosaic.n4 .big{grid-column:span 1}
+.amosaic.n4 .atile:last-child{grid-column:span 2}
+.atile{position:relative;display:block;padding:0;border:0;background:var(--surface);cursor:zoom-in;overflow:hidden;text-align:left}
+.atile img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}
+.atile:hover img,.atile:focus-visible img{transform:scale(1.03)}
+.atile:focus-visible{outline:2px solid var(--kasa);outline-offset:2px}
+.acap{position:absolute;left:0;right:0;bottom:0;padding:28px 14px 12px;background:linear-gradient(to top,rgba(0,0,0,.78),rgba(0,0,0,0));color:#f2efe8;display:flex;flex-direction:column;gap:2px}
+.acap b{font-weight:500;font-size:.9rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.acap small{font-size:.74rem;opacity:.75}
+.atile.big .acap{padding:40px 18px 16px}
+.atile.big .acap b{font-family:var(--serif);font-size:1.15rem}
+.arch-videos{margin-top:28px}
+.arch-sub{font-size:.78rem;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
+.vrows{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.vrow{display:flex;gap:14px;align-items:center;text-align:left;padding:14px 16px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;min-width:0}
+.vrow:hover{border-color:var(--ink)}
+.vrow.off{opacity:.5;cursor:default}
+.vr-play{flex:none;width:38px;height:38px;border-radius:50%;border:1px solid currentColor;display:grid;place-items:center;font-size:.8rem}
+.vr-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.vr-txt b{font-weight:500;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vr-txt small{font-size:.74rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:760px){
+  .amosaic,.amosaic.n3,.amosaic.n4{grid-template-columns:1fr 1fr;grid-auto-rows:clamp(120px,38vw,190px)}
+  .amosaic .big,.amosaic.n3 .big,.amosaic.n4 .big{grid-column:span 2;grid-row:span 1}
+  .amosaic.n3 .big{grid-row:span 1}
+  .amosaic.n4 .atile:last-child{grid-column:span 1}
+  .amosaic.n4 .atile:nth-child(2){grid-column:span 2}
+  .vrows{grid-template-columns:1fr}
+}
 .masonry button{display:block;width:100%;margin:0 0 14px;padding:0;border:0;background:none;cursor:zoom-in;break-inside:avoid}
 .masonry img{width:100%}
 .masonry .cap{font-size:.82rem;color:var(--muted);text-align:left;padding-top:6px}
@@ -1415,6 +1453,17 @@ function vFooter(){
   <div class="wrap"><div class="foot-legal"><p class="fl-h">Copyright &amp; Intellectual Property Notice</p><p>${esc(String(p.notice || "").trim() || NOTICE_DEFAULT).replace(/\n/g, "<br>")}</p><p class="fl-c">${esc(String(p.copyright || "").trim() || COPY_DEFAULT)}</p></div></div>`;
 }
 
+/* 메인 아카이브: 최신 무대 사진 최대 5장 (큰 사진 1 + 작은 사진 4), 사진마다 제목 */
+function archMosaic(){
+  const list = S.gallery.filter(g => g.image).slice(0, 5); if (!list.length) return "";
+  return `<div class="amosaic n${list.length}">${list.map((g, i) => { const meta = [g.repertoire, g.date ? fmtDate(g.date) : ""].filter(Boolean).join(" · ");
+    return `<button class="atile ${i === 0 ? "big" : ""}" data-act="img" data-i="${S.gallery.indexOf(g)}" aria-label="${esc(g.caption || "공연 사진")} 크게 보기"><img src="${blob(g.image)}" alt="${esc(g.caption || "공연 사진")}" loading="lazy"><span class="acap"><b>${esc(g.caption || g.repertoire || "공연 사진")}</b>${meta && (g.caption || !g.repertoire) ? `<small>${esc(meta)}</small>` : g.date ? `<small>${esc(fmtDate(g.date))}</small>` : ""}</span></button>`; }).join("")}</div>`;
+}
+/* 사진이 있을 때 영상은 한 줄짜리 목록으로 (존재는 유지하되 사진과 시선을 다투지 않게) */
+function videoRow(v){
+  const id = ytId(v.url);
+  return `<button class="vrow ${id ? "" : "off"}" ${id ? `data-act="video" data-id="${esc(v.id)}"` : 'disabled aria-disabled="true"'}><span class="vr-play" aria-hidden="true">${id ? "▶" : "–"}</span><span class="vr-txt"><small>${esc([v.repertoire, v.category].filter(Boolean).join(", ") || "영상")}</small><b>${esc(v.title)}</b><small>${fmtDate(v.date)}${v.venue ? `, ${esc(v.venue)}` : ""}</small></span></button>`;
+}
 function videoCard(v){
   const id = ytId(v.url);
   return `<button class="vcard ${id ? "" : "off"}" ${id ? `data-act="video" data-id="${esc(v.id)}"` : 'disabled aria-disabled="true"'}>
@@ -1629,9 +1678,10 @@ function vHome(){
     <div class="sec-head"><div><h2>레퍼토리</h2><p>무대에 올리는 여섯 가지 춤</p></div><a class="btn ghost sm" href="#/about">자세히 보기</a></div>
     <div class="rep-strip">${REP.map(r => `<a href="#/about" data-act="gorep" data-id="${r.k}" class="rep-mini"><b>${r.name}</b>${r.k === "seungmu" ? `<small>대표 레퍼토리</small>` : ""}</a>`).join("")}</div>
   </div></section>
-  <section class="sec"><div class="wrap">
-    <div class="sec-head"><div><h2>아카이브</h2><p>주요 공연의 하이라이트</p></div><a class="btn ghost sm" href="#/portfolio/video">전체 영상</a></div>
-    ${loading()}${S.videos.length ? `<div class="grid g3">${S.videos.slice(0,3).map(videoCard).join("")}</div>` : (S.loaded ? `<div class="empty">아직 등록된 영상이 없어요.</div>` : "")}
+  <section class="sec sec-archive"><div class="wrap">
+    <div class="sec-head"><div><h2>아카이브</h2><p>무대 사진과 주요 공연 영상</p></div><div class="btn-row" style="margin:0">${S.gallery.length ? `<a class="btn ghost sm" href="#/portfolio/gallery">사진 전체</a>` : ""}<a class="btn ghost sm" href="#/portfolio/video">영상 전체</a></div></div>
+    ${loading()}${archMosaic()}
+    ${S.videos.length ? `<div class="arch-videos">${S.gallery.length ? `<p class="arch-sub">영상</p>` : ""}<div class="${S.gallery.length ? "vrows" : "grid g3"}">${S.videos.slice(0,3).map(v => S.gallery.length ? videoRow(v) : videoCard(v)).join("")}</div></div>` : (S.loaded && !S.gallery.length ? `<div class="empty">아직 등록된 사진과 영상이 없어요.</div>` : "")}
   </div></section>
   <section class="sec"><div class="wrap">
     <div class="sec-head"><div><h2>스토어</h2><p>전통춤의 선과 색을 일상의 순간으로</p></div><a class="btn ghost sm" href="#/store">스토어 가기</a></div>
