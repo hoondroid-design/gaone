@@ -28,6 +28,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;900&display=swap" rel="stylesheet">
 <style>
+/* 검색엔진용 글자 영역: 문서에는 남겨 두되 화면에는 처음부터 보이지 않게 (사이트가 뜨기 전 잠깐 보이던 문제 방지) */
+#seo-static{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}
 :root{
   --paper:#0B0B0A; --surface:#161615; --ink:#ECEAE4; --muted:#8F8D87; --line:#2B2B29;
   --kasa:#D25A5C; --brass:#B39C68; --on-ink:#0B0B0A;
