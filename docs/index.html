@@ -2106,12 +2106,12 @@ const SCHEMA = {
   popups: { label: "팝업", fields: [
     {k:"title",l:"관리용 이름",req:1,wide:1,hint:"관리자만 보는 이름이에요. 예: 11월 정기공연 안내"},
     {k:"start",l:"게시 시작일",t:"date",req:1,hint:"이 날 0시(한국 시간)부터 보여요."},{k:"end",l:"게시 종료일",t:"date",req:1,hint:"이 날 밤 12시(한국 시간)까지 보이고 자동으로 내려가요."},
-    {k:"kind",l:"팝업 형태",t:"select",opts:["이미지","텍스트"],req:1},{k:"order",l:"순서",t:"number",hint:"작은 숫자가 왼쪽에 나와요."},
-    {k:"image",l:"팝업 이미지 (이미지 형태)",t:"image",wide:1,hint:"완성된 팝업 이미지를 올려요. 권장 크기는 가로 400 × 세로 500px이고, 휴대폰에서도 선명하게 보이려면 800 × 1000px로 만들어 주세요."},
+    {k:"kind",l:"팝업 형태",t:"select",opts:["이미지","텍스트","이미지 + 텍스트"],req:1,hint:"이미지: 완성된 이미지 한 장 / 텍스트: 제목과 내용 (이미지를 올리면 위에 함께 보여요) / 이미지 + 텍스트: 위에 이미지, 아래에 글"},{k:"order",l:"순서",t:"number",hint:"작은 숫자가 왼쪽에 나와요."},
+    {k:"image",l:"팝업 이미지",t:"image",wide:1,hint:"'이미지' 형태는 완성된 팝업 이미지를, 텍스트와 함께 쓸 때는 글 위에 들어갈 사진을 올려요. 권장 크기는 가로 400 × 세로 500px이고, 휴대폰에서도 선명하게 보이려면 800 × 1000px로 만들어 주세요."},
     {k:"fit",l:"이미지 표시 방식",t:"select",opts:["가로 폭에 맞춤 (세로 스크롤)","원본 크기 (상하, 좌우 스크롤)"],wide:1,hint:"팝업 칸(400 × 500px)보다 큰 이미지는 스크롤로 볼 수 있어요."},
     {k:"heading",l:"제목 (텍스트 형태)",wide:1},{k:"text",l:"내용 (텍스트 형태)",t:"textarea",rows:8,wide:1,hint:"빈 줄로 문단을 나눠요. 내용이 길면 팝업 안에서 스크롤돼요."},
     {k:"link",l:"누르면 이동할 주소 (선택)",wide:1,hint:"예: #/store (사이트 안 메뉴) 또는 https://… (다른 사이트, 새 창으로 열림). 비워 두면 누르지 않아요."}],
-    title: x => x.title, sub: x => `${popState(x)}, ${String(x.start || "").replace(/-/g, ".")} ~ ${String(x.end || "").replace(/-/g, ".")}, ${x.kind || ""}`, badge: x => popState(x) === "게시 중" ? "" : "", thumb: x => x.kind === "이미지" ? x.image : "" },
+    title: x => x.title, sub: x => `${popState(x)}, ${String(x.start || "").replace(/-/g, ".")} ~ ${String(x.end || "").replace(/-/g, ".")}, ${x.kind || ""}`, badge: x => popState(x) === "게시 중" ? "" : "", thumb: x => x.image || "" },
   slides: { label: "메인 슬라이드", fields: [
     {k:"image",l:"사진",t:"image",req:1,wide:1,hint:"가로로 긴 고화질 사진(2400px 이상)을 권해요. 글자가 왼쪽 아래에 올라가니 그 자리가 어두운 사진이 잘 어울려요."},
     {k:"order",l:"순서",t:"number",hint:"작은 숫자가 먼저 나와요."},{k:"focus",l:"사진 기준점",t:"select",opts:["가운데","위쪽","아래쪽"],hint:"화면 비율에 따라 잘릴 때 어느 쪽을 살릴지 정해요."},
@@ -3006,9 +3006,10 @@ function vPopups(){
   const list = (S.popups || []).filter(x => popState(x) === "게시 중" && !S.popClosed[x.id] && !popHiddenToday(x.id)).slice(0, POP_MAX);
   if (!list.length) return "";
   const body = x => {
-    const inner = x.kind === "이미지"
-      ? `<img src="${blob(x.image)}" alt="${esc(x.title || "공지")}" class="${String(x.fit || "").startsWith("원본") ? "pop-orig" : "pop-fit"}">`
-      : `<div class="pop-text">${x.heading ? `<h2>${esc(x.heading)}</h2>` : ""}${paras(x.text)}</div>`;
+    /* 이미지가 올려져 있으면 형태와 관계없이 보여 주고, 텍스트 형태면 그 아래에 글을 붙임 */
+    const img = x.image ? `<img src="${blob(x.image)}" alt="${esc(x.heading || x.title || "공지")}" class="${x.kind === "이미지" && String(x.fit || "").startsWith("원본") ? "pop-orig" : "pop-fit"}">` : "";
+    const txt = x.kind !== "이미지" && (x.heading || x.text) ? `<div class="pop-text">${x.heading ? `<h2>${esc(x.heading)}</h2>` : ""}${paras(x.text)}</div>` : "";
+    const inner = img + txt;
     const link = String(x.link || "").trim();
     if (!link) return inner;
     const ext = /^https?:\/\//i.test(link), safe = ext || link.startsWith("#/");
@@ -3561,7 +3562,8 @@ async function saveItem(col, form){
     if (!S.edit.id && S.popups.length >= POP_MAX){ toast(`팝업은 최대 ${POP_MAX}개까지 등록할 수 있어요`); return; }
     if (data.end < data.start){ toast("게시 종료일이 시작일보다 빨라요"); return; }
     if (data.kind === "이미지" && !data.image){ toast("팝업 이미지를 올려 주세요"); return; }
-    if (data.kind === "텍스트" && !data.text){ toast("팝업 내용을 적어 주세요"); return; }
+    if (data.kind !== "이미지" && !data.text && !data.heading){ toast("팝업 제목이나 내용을 적어 주세요"); return; }
+    if (data.kind === "이미지 + 텍스트" && !data.image){ toast("팝업 이미지를 올려 주세요"); return; }
   }
   if (col === "videos" && !ytId(data.url)){ toast("YouTube 링크 형식을 확인해 주세요"); return; }
   S.busy = true; render();
